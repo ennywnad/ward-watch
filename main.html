@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Shift Goals: NICU Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Vt323&display=swap');
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #2d3748;
+            font-family: 'Vt323', monospace;
+            touch-action: none;
+            user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #1a202c;
+        }
+
+        canvas {
+            background-color: #e2e8f0;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            max-width: 100%;
+            max-height: 100%;
+            image-rendering: pixelated;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .hud-panel {
+            background: rgba(0, 0, 0, 0.85);
+            color: #fff;
+            padding: 10px;
+            border-radius: 4px; 
+            pointer-events: auto;
+            font-size: 1.5rem;
+            border: 4px solid #4a5568; 
+            white-space: nowrap;
+            box-shadow: 4px 4px 0px #000; 
+        }
+        
+        .pause-btn {
+            background: #e53e3e;
+            border-color: #9b2c2c;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .pause-btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0px #000;
+        }
+        
+        .mug-btn {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            background: #3182ce;
+            color: white;
+            border: 4px solid #2c5282;
+            padding: 10px 20px;
+            font-size: 1.5rem;
+            font-family: 'Vt323', monospace;
+            cursor: pointer;
+            box-shadow: 6px 6px 0px #000;
+            pointer-events: auto;
+            display: none; 
+            z-index: 50;
+        }
+        .mug-btn:hover { background: #2b6cb0; transform: translate(-2px, -2px); box-shadow: 8px 8px 0px #000; }
+
+        #sanity-bar-container {
+            width: 200px;
+            height: 20px;
+            background: #2d3748;
+            border: 2px solid #fff;
+            margin-top: 5px;
+        }
+
+        #sanity-bar {
+            width: 100%;
+            height: 100%;
+            background: #48bb78;
+            transition: width 0.2s, background 0.2s;
+        }
+
+        #log-panel {
+            position: absolute;
+            right: 10px;
+            top: 90px;
+            bottom: 10px;
+            width: 320px;
+            background: rgba(0, 0, 0, 0.2); 
+            border: 2px solid rgba(113, 128, 150, 0.5);
+            border-radius: 4px;
+            padding: 8px;
+            overflow-y: auto;
+            pointer-events: auto;
+            font-family: 'Vt323', monospace;
+            display: flex;
+            flex-direction: column-reverse; 
+        }
+        
+        #log-panel::-webkit-scrollbar { display: none; }
+        #log-panel { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .log-entry {
+            margin-bottom: 6px;
+            border-bottom: 1px solid rgba(74, 85, 104, 0.5);
+            padding-bottom: 4px;
+            line-height: 1.1;
+            text-shadow: 2px 2px 0 #000; 
+        }
+        .log-time { color: #a0aec0; font-size: 0.9rem; margin-right: 4px; }
+        .log-speaker { font-weight: bold; margin-right: 4px; font-size: 1.1rem;}
+        .log-msg { font-size: 1.1rem; color: #e2e8f0; }
+        
+        .sp-resident { color: #90cdf4; }
+        .sp-mom { color: #f687b3; }
+        .sp-dad { color: #63b3ed; }
+        .sp-surgeon { color: #fc8181; }
+        .sp-nurse { color: #68d391; }
+        .sp-admin { color: #d6bcfa; }
+
+        #modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            background: #2d3748;
+            color: white;
+            padding: 2rem;
+            border-radius: 0px;
+            text-align: center;
+            border: 4px solid #fff;
+            box-shadow: 8px 8px 0px #000;
+            max-width: 600px;
+        }
+
+        .btn {
+            background: #3182ce;
+            color: white;
+            border: 4px solid #2c5282;
+            padding: 10px 20px;
+            font-size: 1.5rem;
+            font-family: 'Vt323', monospace;
+            cursor: pointer;
+            margin-top: 1rem;
+            box-shadow: 4px 4px 0px #000;
+        }
+        .btn:hover { background: #2b6cb0; transform: translate(-2px, -2px); box-shadow: 6px 6px 0px #000; }
+        .btn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0px #000; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-layer">
+        <div class="flex justify-between w-full items-start" id="game-ui-top">
+            <div class="hud-panel">
+                <div>TIME: <span id="timer">07:00</span></div>
+                <div>SCORE: <span id="score">0</span></div>
+            </div>
+
+            <button id="pause-btn" class="hud-panel pause-btn" onclick="togglePause()">
+                ⏸ PAUSE
+            </button>
+
+            <div class="hud-panel" id="sanity-container-ui">
+                <div>SANITY</div>
+                <div id="sanity-bar-container">
+                    <div id="sanity-bar"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="log-panel">
+            <div class="log-entry"><span class="log-time">07:00</span> <span class="log-msg text-gray-400">Shift started. Good luck.</span></div>
+        </div>
+        
+        <div class="hud-panel self-center" id="message-box" style="opacity: 0; transition: opacity 0.5s;">
+            <span id="message-text">Shift Started!</span>
+        </div>
+
+        <button id="restart-btn" class="mug-btn" onclick="startGame()">NEXT SHIFT</button>
+    </div>
+
+    <div id="modal-overlay">
+        <div class="modal-content">
+            <h1 class="text-4xl mb-4 text-blue-300">SHIFT GOALS</h1>
+            <p class="text-xl mb-4">NICU Edition</p>
+            <div class="grid grid-cols-2 gap-4 text-left text-lg mb-6">
+                <div>
+                    <h3 class="text-green-400 font-bold">GOOD STUFF</h3>
+                    <ul class="space-y-1">
+                        <li>☕ <strong>Coffee:</strong> Speed Boost</li>
+                        <li>🍕 <strong>Pizza:</strong> Food! (+Sanity)</li>
+                        <li>🧻 <strong>Break:</strong> Max Sanity</li>
+                        <li>🪑 <strong>Chair:</strong> Sit to heal.</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="text-red-400 font-bold">BAD STUFF</h3>
+                    <ul class="space-y-1">
+                        <li>😷 <strong>Surgeon:</strong> Arrogant</li>
+                        <li>👨‍⚕️ <strong>Resident:</strong> Clueless</li>
+                        <li>🎁 <strong>Admin:</strong> "Wellness" Traps</li>
+                    </ul>
+                </div>
+            </div>
+            <p class="text-md italic mb-4 text-gray-400">"Earn stickers for your big dumb mug!"</p>
+            <button class="btn" onclick="startGame()">CLOCK IN</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const sanityBar = document.getElementById('sanity-bar');
+    const timerDisplay = document.getElementById('timer');
+    const scoreDisplay = document.getElementById('score');
+    const messageBox = document.getElementById('message-box');
+    const messageText = document.getElementById('message-text');
+    const modalOverlay = document.getElementById('modal-overlay');
+    const modalContent = document.querySelector('.modal-content');
+    const logPanel = document.getElementById('log-panel');
+    const pauseBtn = document.getElementById('pause-btn');
+    const restartBtn = document.getElementById('restart-btn');
+    const gameUiTop = document.getElementById('game-ui-top');
+
+    const SHIFT_START = 7 * 60; 
+    const SHIFT_END = 19 * 60; 
+    const GAME_DURATION_SECONDS = 140; 
+    const MS_PER_GAME_MINUTE = (GAME_DURATION_SECONDS * 1000) / (12 * 60); 
+
+    // Audio context for sound effects
+    let audioCtx = null;
+    function initAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+    }
+
+    function playBeep(frequency = 440, duration = 100) {
+        if (!audioCtx) return;
+        try {
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.frequency.value = frequency;
+            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration/1000);
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + duration/1000);
+        } catch(e) {
+            // Audio failed, no big deal
+        }
+    }
+
+    let gameState = {
+        mode: 'MENU',
+        running: false,
+        paused: false,
+        pausePhrase: "PAUSED",
+        time: SHIFT_START,
+        sanity: 100,
+        score: 0,
+        lastTime: 0,
+        coffeeBoost: 0,
+        mugRotation: 0,
+        mugStickers: [],
+        inventoryStickers: [],
+        draggedSticker: null // FIXED: Moved to gameState
+    };
+
+    let entities = [];
+    let particles = [];
+    let chair = null;
+    let isolettes = [];
+    
+    const PIXEL_SCALE = 12; 
+    const COLORS = {
+        _: null, 
+        S: '#f6d0b1',
+        B: '#4299e1',
+        G: '#48bb78',
+        W: '#ffffff',
+        H: '#2d3748',
+        R: '#f56565',
+        P: '#ed64a6',
+        Y: '#ecc94b',
+        O: '#ed8936',
+        L: '#a0aec0',
+        D: '#2c5282',
+        K: '#000000',
+        C: '#0bc5ea',
+        N: '#ccff00',
+    };
+
+    const SPRITES = {
+        nurse: [
+            "___WWWW___",
+            "___WWWW___",
+            "___SSSS___",
+            "___SRSS___", 
+            "__BBBBBB__",
+            "__BBBBBB__",
+            "_BBWWBBBB_",
+            "_BBBBBBBB_",
+            "__BB__BB__",
+            "__NW__NW__"
+        ],
+        nurse_sit: [
+            "___WWWW___",
+            "___WWWW___",
+            "___SSSS___",
+            "___SRSS___", 
+            "__BBBBBB__",
+            "__BBBBBB__",
+            "_BBBBBB___",
+            "_BBBBBB___",
+            "__BB______",
+            "__NW______"
+        ],
+        resident: [
+            "___HHHH___",
+            "___SSSS___",
+            "___SSSS___",
+            "__WWWWWW__",
+            "__WWLWWW__", 
+            "_WWWDDWWW_",
+            "_WWWWWWWW_",
+            "__LL__LL__",
+            "__LL__LL__"
+        ],
+        surgeon: [
+            "___GGGG___",
+            "___GGGG___",
+            "___SKS____", 
+            "___GGG____",
+            "__GGGGGG__",
+            "__GGGGGG__",
+            "_GGGGGGGG_",
+            "_GGGGGGGG_",
+            "__GG__GG__",
+            "__GG__GG__"
+        ],
+        mom: [
+            "__HHHHHH__",
+            "__HHHHHH__",
+            "___SSSS___",
+            "__PPPPPP__",
+            "__PPPKPP__", 
+            "_PPPPPPPP_",
+            "_PPPPPPPP_",
+            "__LL__LL__",
+            "__LL__LL__"
+        ],
+        dad: [
+            "__DDDDDD__", 
+            "___SSSS___",
+            "___SSSS___",
+            "__DDDDDD__",
+            "__DDDYDD__", 
+            "_DDDDDDDD_",
+            "_DDDDDDDD_",
+            "__LL__LL__",
+            "__LL__LL__"
+        ],
+        baby: [
+            "__________",
+            "____S_____",
+            "___WWW____",
+            "__WWWWW___",
+            "__WWWWW___",
+            "___WWW____",
+            "__________"
+        ],
+        coffee: [
+            "__________",
+            "___SSS____", 
+            "__________",
+            "__WWWW____",
+            "__OOOO__W_", 
+            "__OOOO__W_",
+            "__OOOO____",
+            "__________"
+        ],
+        machine_monitor: [
+            "__KKKKK___",
+            "_KCCC CK__",
+            "_KCCC CK__",
+            "_KCCC CK__",
+            "__KKKKK___",
+            "__________",
+            "___KKK____",
+            "__K__K____"
+        ],
+        machine_iv: [
+            "___K______",
+            "___K______",
+            "___K______",
+            "___K______",
+            "__KKK_____",
+            "__K_K_____",
+            "__K_K_____",
+            "__K_K_____"
+        ],
+        machine_vent: [
+            "___KKK____",
+            "__KCLCK___",
+            "__K_L_K___",
+            "__KKKKK___",
+            "___K_K____",
+            "___K_K____",
+            "___K_K____",
+            "___K_K____"
+        ]
+    };
+
+    function drawSprite(ctx, spriteKey, x, y, scale = PIXEL_SCALE) {
+        const data = SPRITES[spriteKey];
+        if (!data) return;
+        const width = data[0].length * scale;
+        const height = data.length * scale;
+        const startX = x - width / 2;
+        const startY = y - height / 2;
+
+        if (!spriteKey.startsWith('machine_')) { 
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            ctx.beginPath();
+            ctx.ellipse(x, y + height/3, width/1.5, width/4, 0, 0, Math.PI*2);
+            ctx.fill();
+        }
+
+        for (let r = 0; r < data.length; r++) {
+            for (let c = 0; c < data[0].length; c++) {
+                const char = data[r][c];
+                const color = COLORS[char];
+                if (color) {
+                    ctx.fillStyle = color;
+                    ctx.fillRect(startX + c * scale, startY + r * scale, scale, scale);
+                }
+            }
+        }
+    }
+
+    function addLogEntry(speakerType, message) {
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        
+        const hours = Math.floor(gameState.time / 60);
+        const mins = Math.min(59, Math.floor(gameState.time % 60)); // FIXED: Prevent 60 minutes
+        const timeStr = `${hours.toString().padStart(2,'0')}:${mins.toString().padStart(2,'0')}`;
+
+        let speakerName = "Unknown";
+        let speakerClass = "";
+        
+        if (speakerType === 'resident') { speakerName = "Res"; speakerClass = "sp-resident"; }
+        else if (speakerType === 'mom') { speakerName = "Mom"; speakerClass = "sp-mom"; }
+        else if (speakerType === 'dad') { speakerName = "Dad"; speakerClass = "sp-dad"; }
+        else if (speakerType === 'surgeon') { speakerName = "Surg"; speakerClass = "sp-surgeon"; }
+        else if (speakerType === 'nurse') { speakerName = "You"; speakerClass = "sp-nurse"; }
+        else if (speakerType === 'admin') { speakerName = "Admin"; speakerClass = "sp-admin"; }
+        else if (speakerType === 'baby') { speakerName = "Baby"; speakerClass = "text-white"; }
+
+        entry.innerHTML = `
+            <span class="log-time">${timeStr}</span>
+            <span class="log-speaker ${speakerClass}">${speakerName}:</span>
+            <span class="log-msg">${message}</span>
+        `;
+        
+        logPanel.prepend(entry);
+        if (logPanel.children.length > 50) logPanel.lastElementChild.remove();
+    }
+
+    function togglePause() {
+        if (gameState.mode !== 'GAME') return;
+        
+        gameState.paused = !gameState.paused;
+        
+        const sassyPhrases = [
+            "Cool it!",
+            "Hush!",
+            "I can't even.",
+            "Unbelievable.",
+            "Silence.",
+            "Not today.",
+            "Excuse you?",
+            "I'm on break."
+        ];
+
+        if (gameState.paused) {
+            gameState.pausePhrase = sassyPhrases[Math.floor(Math.random() * sassyPhrases.length)];
+            pauseBtn.innerText = "▶ RESUME";
+            pauseBtn.style.backgroundColor = "#4299e1"; 
+        } else {
+            pauseBtn.innerText = "⏸ PAUSE";
+            pauseBtn.style.backgroundColor = "#e53e3e"; 
+            gameState.lastTime = performance.now(); 
+        }
+    }
+
+    class Vector {
+        constructor(x, y) { this.x = x; this.y = y; }
+        dist(v) { return Math.sqrt(Math.pow(this.x - v.x, 2) + Math.pow(this.y - v.y, 2)); }
+    }
+
+    class Entity {
+        constructor(x, y, type) {
+            this.pos = new Vector(x, y);
+            this.target = null;
+            this.type = type;
+            this.size = SPRITES[type] ? SPRITES[type][0].length * PIXEL_SCALE / 2 : 60; 
+            this.speed = 2;
+            this.state = 'idle'; 
+            this.timer = 0;
+            this.markedForDeletion = false;
+            this.bubble = null;
+        }
+
+        update(dt) {
+            if (this.state === 'moving' && this.target) {
+                const dx = this.target.x - this.pos.x;
+                const dy = this.target.y - this.pos.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                
+                if (dist < this.speed) { 
+                    this.pos.x = this.target.x;
+                    this.pos.y = this.target.y;
+                    this.state = 'idle';
+                    this.onArrive();
+                } else {
+                    this.pos.x += (dx / dist) * this.speed;
+                    this.pos.y += (dy / dist) * this.speed;
+                }
+            }
+            if (this.bubble) {
+                this.bubble.life -= dt;
+                if (this.bubble.life <= 0) this.bubble = null;
+            }
+        }
+
+        draw(ctx) {
+            ctx.save();
+            ctx.translate(this.pos.x, this.pos.y);
+            this.drawBody(ctx);
+            if (this.bubble) {
+                ctx.font = `${20 * (PIXEL_SCALE/4)}px "Vt323"`; 
+                ctx.fillStyle = 'white';
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(-40, -100, 80, 60, 5); 
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = 'black';
+                ctx.textAlign = 'center';
+                ctx.fillText("...", 0, -60);
+            }
+            ctx.restore();
+        }
+        
+        drawBody(ctx) { }
+        onArrive() { }
+
+        say(text, logSpeakerType = null) {
+            this.bubble = { text: "...", life: 2000 };
+            addLogEntry(logSpeakerType || this.type, text);
+        }
+    }
+
+    class Nurse extends Entity {
+        constructor(x, y) {
+            super(x, y, 'nurse');
+            this.speed = 4 * (PIXEL_SCALE/4); 
+            this.baseSpeed = 4 * (PIXEL_SCALE/4);
+            this.size = SPRITES.nurse[0].length * PIXEL_SCALE / 2; 
+        }
+        update(dt) {
+            if (this.state === 'sitting') {
+                gameState.sanity += 0.15; 
+                if (gameState.sanity > 100) gameState.sanity = 100;
+                if (Math.random() < 0.005 && !this.bubble) {
+                    this.say("My feet hurt...", 'nurse');
+                }
+                return;
+            }
+            if (gameState.coffeeBoost > 0) {
+                this.speed = this.baseSpeed * 1.8;
+                gameState.coffeeBoost -= dt;
+            } else {
+                this.speed = this.baseSpeed;
+            }
+            super.update(dt);
+        }
+        draw(ctx) {
+            let sprite = 'nurse';
+            if (this.state === 'sitting') sprite = 'nurse_sit';
+            drawSprite(ctx, sprite, this.pos.x, this.pos.y);
+
+            if (gameState.coffeeBoost > 0 && this.state !== 'sitting') {
+                ctx.fillStyle = 'orange';
+                ctx.font = `${20 * (PIXEL_SCALE/4)}px Arial`; 
+                ctx.fillText('⚡', this.pos.x + 10 * (PIXEL_SCALE/4), this.pos.y - 20 * (PIXEL_SCALE/4));
+            }
+            if (this.bubble) {
+                ctx.font = `${20 * (PIXEL_SCALE/4)}px "Vt323"`;
+                ctx.fillStyle = 'white';
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(this.pos.x - 40, this.pos.y - 100, 80, 60, 5);
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = 'black';
+                ctx.textAlign = 'center';
+                ctx.fillText("...", this.pos.x, this.pos.y - 60);
+            }
+        }
+    }
+
+    class Isolette extends Entity {
+        constructor(x, y, id) {
+            super(x, y, 'isolette');
+            this.id = id;
+            this.needs = []; 
+            this.needTimer = Math.random() * 5000 + 5000;
+            this.size = 15 * (PIXEL_SCALE/4); 
+        }
+        update(dt) {
+            this.needTimer -= dt;
+            if (this.needTimer <= 0 && this.needs.length < 2) {
+                const possibleNeeds = ['feed', 'diaper'];
+                const newNeed = possibleNeeds[Math.floor(Math.random() * possibleNeeds.length)];
+                if (!this.needs.includes(newNeed)) {
+                    this.needs.push(newNeed);
+                    playSoundVisual(this.pos.x, this.pos.y, "BEEP!");
+                    playBeep(600, 150);
+                }
+                this.needTimer = Math.random() * 10000 + 10000;
+            }
+            if (this.needs.length > 0) gameState.sanity -= 0.01; 
+        }
+        drawBody(ctx) {
+            const scaleFactor = PIXEL_SCALE / 6;
+            ctx.fillStyle = '#a0aec0'; ctx.fillRect(-15 * scaleFactor, -8 * scaleFactor, 30 * scaleFactor, 25 * scaleFactor);
+            ctx.fillStyle = '#718096'; ctx.fillRect(-15 * scaleFactor, 17 * scaleFactor, 30 * scaleFactor, 4 * scaleFactor);
+            ctx.fillStyle = '#edf2f7'; ctx.beginPath(); ctx.arc(0, -8 * scaleFactor, 18 * scaleFactor, Math.PI, 0); ctx.fill();
+            
+            const babyData = SPRITES.baby;
+            const babyPixelScale = PIXEL_SCALE / 3; 
+            const startX = - (babyData[0].length * babyPixelScale) / 2; 
+            const startY = -12 * scaleFactor;
+            for(let r=0; r<babyData.length; r++){
+                for(let c=0; c<babyData[0].length; c++){
+                    if(COLORS[babyData[r][c]]) {
+                        ctx.fillStyle = COLORS[babyData[r][c]];
+                        ctx.fillRect(startX + c*babyPixelScale, startY + r*babyPixelScale, babyPixelScale, babyPixelScale);
+                    }
+                }
+            }
+            ctx.fillStyle = 'rgba(190, 240, 255, 0.4)'; ctx.beginPath(); ctx.arc(0, -8 * scaleFactor, 18 * scaleFactor, Math.PI, 0); ctx.fill();
+            ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1 * scaleFactor; ctx.stroke();
+            ctx.font = `${20 * scaleFactor}px Arial`; 
+            if (this.needs.includes('feed')) ctx.fillText('🍼', -10 * scaleFactor, -25 * scaleFactor);
+            if (this.needs.includes('diaper')) ctx.fillText('💩', 10 * scaleFactor, -25 * scaleFactor);
+        }
+    }
+
+    class Machine extends Entity {
+        constructor(x, y, type) { super(x, y, type); this.size = 20; }
+        drawBody(ctx) { drawSprite(ctx, this.type, 0, 0, PIXEL_SCALE / 2); }
+        update(dt) { } 
+    }
+
+    class Enemy extends Entity {
+        constructor(x, y, type, targetIsolette) {
+            super(x, y, type);
+            this.targetIsolette = targetIsolette;
+            this.target = new Vector(targetIsolette.pos.x, targetIsolette.pos.y + 40 * (PIXEL_SCALE/4)); 
+            this.state = 'moving';
+            this.speed = 1.5 * (PIXEL_SCALE/4); 
+            if (type === 'surgeon') this.speed = 2.5 * (PIXEL_SCALE/4);
+            this.annoyanceLevel = 0; this.maxAnnoyance = 100; this.active = true;
+            this.size = SPRITES[type][0].length * PIXEL_SCALE / 2; 
+        }
+        onArrive() {
+            this.state = 'annoying';
+            let quotes = [];
+            if(this.type === 'resident') quotes = ["Is this kid NPO?", "Vein finder?", "Ordering full workup."];
+            if(this.type === 'mom') quotes = ["Why is he crying?", "Is that machine beeping?", "I read online..."];
+            if(this.type === 'dad') quotes = ["I'm scared.", "Where's the coffee?", "Can I go home?"];
+            if(this.type === 'surgeon') quotes = ["NPO. Now.", "Call the Fellow.", "My way or highway."];
+            this.say(quotes[Math.floor(Math.random()*quotes.length)]);
+        }
+        leave() {
+            this.active = false; this.target = new Vector(canvas.width + 50, canvas.height / 2);
+            this.state = 'moving'; this.bubble = null; setTimeout(() => { this.markedForDeletion = true; }, 5000);
+        }
+        update(dt) {
+            super.update(dt);
+            if (this.state === 'annoying' && this.active) {
+                this.annoyanceLevel += 0.5;
+                let drain = 0.05; if (this.type === 'surgeon') drain = 0.15; 
+                gameState.sanity -= drain; 
+                if (this.annoyanceLevel >= this.maxAnnoyance) {
+                    if (this.type === 'resident' || this.type === 'surgeon') {
+                        playSoundVisual(this.pos.x, this.pos.y, "BABY WOKEN!");
+                        this.targetIsolette.needs.push('calm');
+                        addLogEntry(this.type, "Whoops, woke the baby.");
+                        playBeep(300, 200);
+                    } else {
+                        addLogEntry(this.type, "I'm going to find the charge nurse.");
+                    }
+                    this.leave();
+                }
+            }
+        }
+        draw(ctx) {
+            drawSprite(ctx, this.type, this.pos.x, this.pos.y);
+            if (this.state === 'annoying') {
+                const bw = 30 * (PIXEL_SCALE/4); const bh = 5 * (PIXEL_SCALE/4); const by = -50 * (PIXEL_SCALE/4);
+                ctx.fillStyle = '#feb2b2'; ctx.fillRect(this.pos.x - bw/2, this.pos.y + by, bw, bh);
+                ctx.fillStyle = '#f56565'; ctx.fillRect(this.pos.x - bw/2, this.pos.y + by, bw * (this.annoyanceLevel/this.maxAnnoyance), bh);
+            }
+            if (this.bubble) {
+                ctx.font = `${20 * (PIXEL_SCALE/4)}px "Vt323"`; ctx.fillStyle = 'white'; ctx.strokeStyle = 'black'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.roundRect(this.pos.x - 40, this.pos.y - 100, 80, 60, 5); ctx.fill(); ctx.stroke();
+                ctx.fillStyle = 'black'; ctx.textAlign = 'center'; ctx.fillText("...", this.pos.x, this.pos.y - 60);
+            }
+        }
+    }
+
+    class Item extends Entity {
+        constructor(x, y, type) {
+            super(x, y, type); this.timer = 9000; 
+            if (type === 'coffee') this.size = SPRITES.coffee[0].length * PIXEL_SCALE / 2;
+            else this.size = 30 * (PIXEL_SCALE/4); 
+        }
+        update(dt) { this.timer -= dt; if (this.timer <= 0) this.markedForDeletion = true; }
+        draw(ctx) {
+            if (this.type === 'coffee') drawSprite(ctx, 'coffee', this.pos.x, this.pos.y);
+            else {
+                ctx.save(); ctx.translate(this.pos.x, this.pos.y); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.font = `${30 * (PIXEL_SCALE/4)}px Arial`; 
+                if (this.type === 'pizza') ctx.fillText('🍕', 0, 0);
+                else if (this.type === 'bathroom') ctx.fillText('🧻', 0, 0);
+                else if (this.type === 'admingift') ctx.fillText('🎁', 0, 0);
+                ctx.restore();
+            }
+        }
+    }
+
+    class Chair extends Entity {
+        constructor(x, y) { super(x, y, 'chair'); }
+        draw(ctx) {
+           const x = this.pos.x; const y = this.pos.y; const s = PIXEL_SCALE / 4;
+           ctx.fillStyle = '#744210'; 
+           ctx.fillRect(x-10*s, y, 20*s, 20*s); ctx.fillRect(x-10*s, y-20*s, 5*s, 20*s); 
+           ctx.fillRect(x+5*s, y-20*s, 5*s, 20*s); ctx.fillRect(x-10*s, y-20*s, 20*s, 5*s); 
+        }
+    }
+
+    class Sticker {
+        constructor(text, color) {
+            this.text = text;
+            this.color = color;
+            this.x = 0; 
+            this.y = 0;
+            this.onMug = false;
+            this.angle = 0;
+            this.height = 0;
+            this.width = 160;
+            this.h = 40;
+        }
+    }
+
+    function initGame() {
+        initAudio(); // FIXED: Initialize audio on first user interaction
+        gameState.mode = 'GAME';
+        gameState.running = true;
+        resizeCanvas();
+        entities = [];
+        particles = [];
+        isolettes = [];
+        
+        // FIXED: Clear log panel completely
+        logPanel.innerHTML = '';
+        addLogEntry('admin', "SHIFT START. Mandatory huddle skipped.");
+
+        gameState.time = SHIFT_START;
+        gameState.sanity = 100;
+        gameState.score = 0;
+        gameState.gameOver = false;
+        gameState.coffeeBoost = 0;
+        gameState.paused = false;
+        gameState.draggedSticker = null; // FIXED: Reset dragged sticker
+        pauseBtn.innerText = "⏸ PAUSE";
+        pauseBtn.style.backgroundColor = "#e53e3e";
+        restartBtn.style.display = 'none';
+        gameUiTop.style.display = 'flex';
+        logPanel.style.display = 'flex';
+
+        const cols = 3;
+        const rows = 2;
+        const startX = canvas.width * 0.15;
+        const startY = canvas.height * 0.3;
+        const gapX = canvas.width * 0.25;
+        const gapY = canvas.height * 0.4;
+
+        let idCount = 0;
+        for(let r=0; r<rows; r++) {
+            for(let c=0; c<cols; c++) {
+                const isoX = startX + c*gapX;
+                const isoY = startY + r*gapY;
+                isolettes.push(new Isolette(isoX, isoY, idCount++));
+                const machineType = ['machine_monitor', 'machine_iv', 'machine_vent'][Math.floor(Math.random() * 3)];
+                entities.push(new Machine(isoX + 50, isoY - 20, machineType));
+            }
+        }
+        entities.push(...isolettes);
+        chair = new Chair(canvas.width * 0.6, canvas.height * 0.9);
+        entities.push(chair);
+        nurse = new Nurse(canvas.width/2, canvas.height/2);
+        entities.push(nurse);
+    }
+
+    function spawnEnemy() {
+        if (Math.random() > 0.005) return;
+        const typeRoll = Math.random();
+        let type = 'resident';
+        if (typeRoll > 0.35) type = 'mom';
+        if (typeRoll > 0.7) type = 'dad';
+        if (typeRoll > 0.9) type = 'surgeon'; 
+        const targetIsolette = isolettes[Math.floor(Math.random() * isolettes.length)];
+        entities.push(new Enemy(Math.random()>0.5?-50:canvas.width+50, Math.random()*canvas.height, type, targetIsolette));
+    }
+
+    function spawnItem() {
+        if (Math.random() > 0.004) return; 
+        const roll = Math.random();
+        let type = 'coffee';
+        if (roll > 0.5) type = 'pizza'; 
+        if (roll > 0.75) type = 'admingift'; 
+        if (roll > 0.9) type = 'bathroom'; 
+        entities.push(new Item(Math.random()*(canvas.width-350)+50, Math.random()*(canvas.height-100)+50, type));
+    }
+
+    function update(dt) {
+        if (gameState.mode === 'MUG') {
+            gameState.mugRotation += 0.005;
+            return;
+        }
+
+        if (!gameState.running || gameState.gameOver) return;
+
+        gameState.time += (dt / MS_PER_GAME_MINUTE);
+        if (gameState.time >= SHIFT_END) endGame(true);
+        if (gameState.sanity <= 0) { gameState.sanity = 0; endGame(false); }
+
+        spawnEnemy();
+        spawnItem();
+
+        entities.forEach(e => e.update(dt));
+        entities = entities.filter(e => !e.markedForDeletion);
+
+        entities.filter(e => ['coffee', 'pizza', 'bathroom', 'admingift'].includes(e.type)).forEach(item => {
+            if (nurse.pos.dist(item.pos) < 40 + item.size/2 && !item.markedForDeletion) {
+                item.markedForDeletion = true;
+                if (item.type === 'coffee') { 
+                    gameState.coffeeBoost = 5000; 
+                    playSoundVisual(item.pos.x, item.pos.y, "CAFFEINE!"); 
+                    gameState.sanity = Math.min(100, gameState.sanity + 5); 
+                    addLogEntry('nurse', "Chugged coffee.");
+                    playBeep(800, 100);
+                }
+                else if (item.type === 'pizza') { 
+                    playSoundVisual(item.pos.x, item.pos.y, "Pizza!"); 
+                    gameState.sanity = Math.min(100, gameState.sanity + 20); 
+                    addLogEntry('nurse', "Cold pizza. Delicious.");
+                    playBeep(400, 150);
+                }
+                else if (item.type === 'bathroom') { 
+                    playSoundVisual(item.pos.x, item.pos.y, "BREAK!"); 
+                    gameState.sanity = Math.min(100, gameState.sanity + 40); 
+                    addLogEntry('nurse', "Silence. Bliss.");
+                    playBeep(500, 200);
+                }
+                else if (item.type === 'admingift') { 
+                    playSoundVisual(item.pos.x, item.pos.y, "TRAP!"); 
+                    gameState.sanity -= 10; 
+                    addLogEntry('admin', "Heroes Work Here (rock)."); 
+                    addLogEntry('nurse', "Seriously?!");
+                    playBeep(200, 300);
+                }
+            }
+        });
+
+        if (nurse.state === 'idle') {
+            isolettes.forEach(iso => {
+                if (nurse.pos.dist(iso.pos) < 50 + iso.size/2 && iso.needs.length > 0) {
+                    const need = iso.needs.shift();
+                    if (need === 'feed') { 
+                        playSoundVisual(iso.pos.x, iso.pos.y, "+15g"); 
+                        gameState.score += 100; 
+                        addLogEntry('nurse', "Baby fed.");
+                        playBeep(700, 100);
+                    }
+                    else if (need === 'diaper') { 
+                        playSoundVisual(iso.pos.x, iso.pos.y, "Clean!"); 
+                        gameState.score += 50; 
+                        addLogEntry('nurse', "Diaper changed.");
+                        playBeep(650, 100);
+                    }
+                    else if (need === 'calm') { 
+                        playSoundVisual(iso.pos.x, iso.pos.y, "Shhh..."); 
+                        gameState.score += 20; 
+                        addLogEntry('nurse', "Baby calmed.");
+                        playBeep(450, 150);
+                    }
+                }
+            });
+        }
+        
+        if (nurse.state === 'idle' && nurse.pos.dist(chair.pos) < 40 + chair.size) {
+            nurse.state = 'sitting'; nurse.pos.x = chair.pos.x; nurse.pos.y = chair.pos.y; addLogEntry('nurse', "Sitting down...");
+        }
+
+        if (nurse.state !== 'sitting') {
+            entities.filter(e => ['resident', 'mom', 'dad', 'surgeon'].includes(e.type) && e.active && e.state === 'annoying').forEach(enemy => {
+                if (nurse.pos.dist(enemy.pos) < 60 + enemy.size/2) {
+                    nurse.say("Read the chart!"); 
+                    enemy.leave(); 
+                    gameState.score += 200; 
+                    playSoundVisual(enemy.pos.x, enemy.pos.y, "Handled.");
+                    playBeep(900, 150);
+                }
+            });
+        }
+        
+        // FIXED: Use filter instead of splice in forEach
+        particles = particles.filter(p => {
+            p.y -= 1;
+            p.life--;
+            return p.life > 0;
+        });
+
+        updateHUD(); // FIXED: Moved from draw() to update()
+    }
+
+    function draw() {
+        if (gameState.mode === 'MUG') {
+            drawMugScreen();
+            return;
+        }
+
+        ctx.fillStyle = '#2d3748'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = '#3a4659'; ctx.lineWidth = 2; ctx.beginPath();
+        for(let x=0; x<canvas.width; x+=40) { ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); }
+        for(let y=0; y<canvas.height; y+=40) { ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); }
+        ctx.stroke();
+
+        entities.sort((a, b) => a.pos.y - b.pos.y);
+        entities.forEach(e => e.draw(ctx));
+
+        ctx.font = 'bold 20px Arial';
+        particles.forEach(p => { ctx.fillStyle = p.color; ctx.fillText(p.text, p.x, p.y); });
+
+        if (gameState.paused) {
+            ctx.save();
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#f687b3';
+            ctx.font = 'bold 60px "Vt323"';
+            ctx.textAlign = 'center';
+            ctx.fillText(gameState.pausePhrase, canvas.width/2, canvas.height/2);
+            ctx.restore();
+        }
+    }
+
+    function drawMugScreen() {
+        ctx.fillStyle = '#1a202c';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = '#2d3748';
+        ctx.fillRect(canvas.width - 300, 0, 300, canvas.height);
+        ctx.strokeStyle = '#4a5568';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(canvas.width - 300, 0, 300, canvas.height);
+
+        ctx.fillStyle = 'white';
+        ctx.font = '40px "Vt323"';
+        ctx.textAlign = 'center';
+        ctx.fillText("STICKER STASH", canvas.width - 150, 50);
+        ctx.font = '20px "Vt323"';
+        ctx.fillText("Drag to Mug!", canvas.width - 150, 80);
+
+        gameState.inventoryStickers.forEach(s => {
+            drawSticker(s);
+        });
+
+        if (gameState.draggedSticker) {
+            drawSticker(gameState.draggedSticker);
+        }
+
+        const mugX = (canvas.width - 300) / 2;
+        const mugY = canvas.height / 2 + 50;
+        const mugW = 180;
+        const mugH = 300;
+        
+        ctx.save();
+        
+        ctx.fillStyle = '#718096';
+        ctx.beginPath();
+        ctx.roundRect(mugX + 90, mugY - 100, 60, 150, 20);
+        ctx.fill();
+        ctx.fillStyle = '#1a202c';
+        ctx.beginPath();
+        ctx.roundRect(mugX + 100, mugY - 90, 40, 130, 15);
+        ctx.fill();
+
+        ctx.fillStyle = '#e2e8f0';
+        ctx.beginPath();
+        ctx.moveTo(mugX - mugW/2 - 20, mugY - mugH/2);
+        ctx.lineTo(mugX + mugW/2 + 20, mugY - mugH/2);
+        ctx.lineTo(mugX + mugW/2, mugY + mugH/2);
+        ctx.lineTo(mugX - mugW/2, mugY + mugH/2);
+        ctx.closePath();
+        ctx.fill();
+        
+        const grad = ctx.createLinearGradient(mugX - mugW/2, 0, mugX + mugW/2, 0);
+        grad.addColorStop(0, 'rgba(0,0,0,0.2)');
+        grad.addColorStop(0.2, 'rgba(0,0,0,0)');
+        grad.addColorStop(0.8, 'rgba(0,0,0,0)');
+        grad.addColorStop(1, 'rgba(0,0,0,0.2)');
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        ctx.fillStyle = '#63b3ed';
+        ctx.fillRect(mugX - 10, mugY - mugH/2 - 80, 20, 100);
+
+        ctx.clip();
+        
+        gameState.mugStickers.forEach(s => {
+            const radius = mugW/2;
+            const theta = s.angle + gameState.mugRotation;
+            const xPos = mugX + radius * Math.sin(theta);
+            const zPos = Math.cos(theta);
+            
+            if (zPos > 0) {
+                const scaleX = zPos;
+                ctx.save();
+                ctx.translate(xPos, mugY - mugH/2 + s.height);
+                ctx.scale(scaleX, 1);
+                
+                ctx.fillStyle = s.color;
+                ctx.beginPath();
+                ctx.roundRect(-s.width/2, -s.h/2, s.width, s.h, 5);
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.fillStyle = 'black';
+                ctx.font = '20px "Vt323"';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(s.text, 0, 0);
+                
+                ctx.restore();
+            }
+        });
+
+        ctx.restore();
+
+        ctx.fillStyle = 'white';
+        ctx.font = '40px "Vt323"';
+        ctx.textAlign = 'center';
+        ctx.fillText("SHIFT COMPLETE", mugX, 50);
+    }
+
+    function drawSticker(s) {
+        ctx.save();
+        ctx.translate(s.x, s.y);
+        
+        ctx.fillStyle = s.color;
+        ctx.beginPath();
+        ctx.roundRect(-s.width/2, -s.h/2, s.width, s.h, 5);
+        ctx.fill();
+        
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.fillStyle = 'black';
+        ctx.font = '24px "Vt323"';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(s.text, 0, 0);
+        
+        ctx.restore();
+    }
+
+    function updateHUD() {
+        const hours = Math.floor(gameState.time / 60);
+        const mins = Math.min(59, Math.floor(gameState.time % 60)); // FIXED: Prevent 60 minutes
+        timerDisplay.innerText = `${hours.toString().padStart(2,'0')}:${mins.toString().padStart(2,'0')}`;
+        scoreDisplay.innerText = gameState.score;
+        sanityBar.style.width = `${Math.max(0, gameState.sanity)}%`;
+        if (gameState.sanity > 50) sanityBar.style.backgroundColor = '#48bb78';
+        else if (gameState.sanity > 20) sanityBar.style.backgroundColor = '#ecc94b';
+        else sanityBar.style.backgroundColor = '#f56565';
+    }
+
+    function playSoundVisual(x, y, text) {
+        particles.push({x: x, y: y - 20, text: text, color: '#fff', life: 60});
+    }
+
+    function loop(timestamp) {
+        if (!gameState.paused) {
+            const dt = timestamp - gameState.lastTime;
+            gameState.lastTime = timestamp;
+            update(dt);
+        }
+        draw();
+        if (gameState.running) requestAnimationFrame(loop);
+    }
+
+    function startGame() {
+        modalOverlay.style.display = 'none';
+        initGame();
+        gameState.running = true;
+        gameState.lastTime = performance.now();
+        requestAnimationFrame(loop);
+        showMessage("Shift Start!");
+    }
+
+    function endGame(victory) {
+        gameState.mode = 'MUG';
+        gameUiTop.style.display = 'none';
+        logPanel.style.display = 'none';
+        messageBox.style.opacity = 0;
+        restartBtn.style.display = 'block';
+
+        const stickerPhrases = [
+            "Tiny Dictator", "NPO means NO", "Coffee IV", "Chart This", 
+            "Screaming Potato", "Vein Whisperer", "Chaos Coordinator",
+            "Nap Time?", "Code Brown", "Shhh!", "Tired.", "Nope."
+        ];
+        const colors = ['#feb2b2', '#fbd38d', '#9ae6b4', '#81e6d9', '#90cdf4', '#d6bcfa'];
+        
+        const count = Math.max(1, Math.floor(gameState.score / 200));
+        
+        gameState.inventoryStickers = [];
+        for(let i=0; i<count; i++) {
+            const txt = stickerPhrases[Math.floor(Math.random() * stickerPhrases.length)];
+            const col = colors[Math.floor(Math.random() * colors.length)];
+            const s = new Sticker(txt, col);
+            s.x = canvas.width - 150;
+            s.y = 120 + i * 60;
+            gameState.inventoryStickers.push(s);
+        }
+        gameState.mugStickers = [];
+    }
+
+    function showMessage(text) {
+        messageText.innerText = text;
+        messageBox.style.opacity = 1;
+        setTimeout(() => { messageBox.style.opacity = 0; }, 3000);
+    }
+
+    function getMousePos(evt) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: evt.clientX - rect.left,
+            y: evt.clientY - rect.top
+        };
+    }
+
+    function handlePointerDown(e) {
+        const pos = getMousePos(e);
+
+        if (gameState.mode === 'MUG') {
+            for (let i = gameState.inventoryStickers.length - 1; i >= 0; i--) {
+                const s = gameState.inventoryStickers[i];
+                if (pos.x > s.x - s.width/2 && pos.x < s.x + s.width/2 &&
+                    pos.y > s.y - s.h/2 && pos.y < s.y + s.h/2) {
+                    gameState.draggedSticker = s;
+                    gameState.inventoryStickers.splice(i, 1);
+                    return;
+                }
+            }
+            return;
+        }
+
+        if (!gameState.running || gameState.paused) return;
+        
+        const logRect = logPanel.getBoundingClientRect();
+        if (e.clientX >= logRect.left && e.clientX <= logRect.right &&
+            e.clientY >= logRect.top && e.clientY <= logRect.bottom) return;
+
+        particles.push({x: pos.x, y: pos.y, text: '.', color: '#fff', life: 10});
+
+        if (nurse.state === 'sitting') {
+            nurse.state = 'moving'; nurse.target = new Vector(pos.x, pos.y);
+            nurse.say("Back to work...", 'nurse');
+            return;
+        }
+        
+        const items = entities.filter(ent => ['coffee', 'pizza', 'bathroom', 'admingift'].includes(ent.type));
+        for (let item of items) {
+             if (nurse.pos.dist(item.pos) < 40 + item.size/2) {
+                nurse.target = new Vector(item.pos.x, item.pos.y); nurse.state = 'moving'; return;
+            }
+        }
+        const enemies = entities.filter(ent => ['resident', 'mom', 'dad', 'surgeon'].includes(ent.type) && ent.active);
+        for (let enemy of enemies) {
+            if (nurse.pos.dist(enemy.pos) < 40 + enemy.size/2) {
+                nurse.target = new Vector(enemy.pos.x, enemy.pos.y); nurse.state = 'moving'; return;
+            }
+        }
+        for (let iso of isolettes) {
+            if (nurse.pos.dist(iso.pos) < 40 + iso.size/2) {
+                nurse.target = new Vector(iso.pos.x, iso.pos.y + 30); nurse.state = 'moving'; return;
+            }
+        }
+        if (chair.pos.dist({
