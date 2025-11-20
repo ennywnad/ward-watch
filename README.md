@@ -2,17 +2,8 @@
 
 *A survival simulator for anyone who's ever worked a 12-hour shift and wondered if that rock that says "Heroes Work Here" was tax-deductible.*
 
-Play now: https://ennywnad.github.io/ward-watch/index.html
-
 ## 🎮 Play Now
-
-### 🌐 Play Online
-**[Play Live on GitHub Pages →](https://ennywnad.github.io/ward-watch/index.html)**
-
 **[Play Live on GitHub Pages →](https://ennywnad.github.io/ward-watch/)**
-
-**[Play Live on GitHub Pages →](https://ennywnad.github.io/ward-watch)**
-
 
 ## What Fresh Hell Is This?
 
