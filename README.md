@@ -2,6 +2,18 @@
 
 *A survival simulator for anyone who's ever worked a 12-hour shift and wondered if that rock that says "Heroes Work Here" was tax-deductible.*
 
+Play now: https://ennywnad.github.io/ward-watch/index.html
+
+## 🎮 Play Now
+
+### 🌐 Play Online
+**[Play Live on GitHub Pages →](https://ennywnad.github.io/ward-watch/index.html)**
+
+**[Play Live on GitHub Pages →](https://ennywnad.github.io/ward-watch/)**
+
+**[Play Live on GitHub Pages →](https://ennywnad.github.io/ward-watch)**
+
+
 ## What Fresh Hell Is This?
 
 You're a NICU nurse. You have 6 isolettes full of tiny humans with opinions, a parade of people who've never changed a diaper asking you to explain ventilator settings, and exactly one (1) chair that may or may not be available when your feet finally give out.
