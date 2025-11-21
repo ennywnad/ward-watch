@@ -357,10 +357,15 @@
             score: 0,
             lastTime: 0,
             coffeeBoost: 0,
-            mugRotation: 0,
             mugStickers: [],
             inventoryStickers: [],
-            draggedSticker: null // FIXED: Moved to gameState
+            stickerDelay: 0,
+            displayedScore: 0,
+            mugFillHeight: 0,
+            // Sprint 5: Difficulty modifiers
+            shortStaffed: false,
+            nightShift: false,
+            eventTimer: 0
         };
 
         let entities = [];
@@ -508,6 +513,70 @@
             ]
         };
 
+        // New Sprites for Sprint 1
+        Object.assign(SPRITES, {
+            floorcleaner: [
+                "___MMMM___",
+                "__MMMMMM__",
+                "__M_WW_M__",
+                "__MMMMMM__",
+                "_MMMMMMMM_",
+                "_MMMMMMMM_",
+                "__BB__BB__",
+                "__BB__BB__"
+            ],
+            medicalfamily: [
+                "___HHHH___",
+                "___SSSS___",
+                "___SSSS___",
+                "__CCCCCC__", // Lab coat?
+                "__C_CC_C__",
+                "_CCCCCCCC_",
+                "_CCCCCCCC_",
+                "__LL__LL__",
+                "__LL__LL__"
+            ],
+            sickvisitor: [
+                "___HHHH___",
+                "___SGS____", // Green face
+                "___SGS____",
+                "__JJJJJJ__",
+                "__JJKJJJ__",
+                "_JJJJJJJJ_",
+                "_JJJJJJJJ_",
+                "__LL__LL__",
+                "__LL__LL__"
+            ]
+        });
+
+        const nurseResponses = {
+            dismissEnemy: [
+                "Read the chart!",
+                "I'll get back to you",
+                "Ask the charge nurse",
+                "Not right now",
+                "Let me finish this first"
+            ],
+            feedBaby: [
+                "Baby fed.",
+                "+15g weight gain",
+                "Tolerating feeds well",
+                "No residuals!"
+            ],
+            changeDiaper: [
+                "Diaper changed.",
+                "Output documented",
+                "That was... substantial",
+                "Code brown managed"
+            ],
+            calmBaby: [
+                "Baby calmed.",
+                "Shhh...",
+                "Back to sleep",
+                "Crisis averted"
+            ]
+        };
+
         function drawSprite(ctx, spriteKey, x, y, scale = PIXEL_SCALE) {
             const data = SPRITES[spriteKey];
             if (!data) return;
@@ -553,6 +622,10 @@
             else if (speakerType === 'nurse') { speakerName = "You"; speakerClass = "sp-nurse"; }
             else if (speakerType === 'admin') { speakerName = "Admin"; speakerClass = "sp-admin"; }
             else if (speakerType === 'baby') { speakerName = "Baby"; speakerClass = "text-white"; }
+            // New Types
+            else if (speakerType === 'medicalfamily') { speakerName = "Fam"; speakerClass = "sp-mom"; } // Reuse mom color
+            else if (speakerType === 'sickvisitor') { speakerName = "Vis"; speakerClass = "text-green-400"; }
+            else if (speakerType === 'floorcleaner') { speakerName = "Clean"; speakerClass = "text-gray-500"; }
 
             entry.innerHTML = `
             <span class="log-time">${timeStr}</span>
@@ -666,8 +739,21 @@
                 this.speed = 4 * (PIXEL_SCALE / 4);
                 this.baseSpeed = 4 * (PIXEL_SCALE / 4);
                 this.size = SPRITES.nurse[0].length * PIXEL_SCALE / 2;
+                this.shieldTimer = 0;
+                this.freezeTimer = 0;
             }
             update(dt) {
+                // Freeze Logic
+                if (this.freezeTimer > 0) {
+                    this.freezeTimer -= dt;
+                    return; // Don't move or act
+                }
+
+                // Shield Logic
+                if (this.shieldTimer > 0) {
+                    this.shieldTimer -= dt;
+                }
+
                 if (this.state === 'sitting') {
                     gameState.sanity += 0.15;
                     if (gameState.sanity > 100) gameState.sanity = 100;
@@ -677,7 +763,9 @@
                     return;
                 }
                 if (gameState.coffeeBoost > 0) {
-                    this.speed = this.baseSpeed * 1.8;
+                    let speedBoost = 1.8;
+                    if (gameState.nightShift) speedBoost = 2.5; // Night shift: stronger coffee
+                    this.speed = this.baseSpeed * speedBoost;
                     gameState.coffeeBoost -= dt;
                 } else {
                     this.speed = this.baseSpeed;
@@ -687,6 +775,26 @@
             draw(ctx) {
                 let sprite = 'nurse';
                 if (this.state === 'sitting') sprite = 'nurse_sit';
+
+                // Draw Shield Effect
+                if (this.shieldTimer > 0) {
+                    ctx.save();
+                    ctx.globalAlpha = 0.3 + Math.sin(Date.now() / 100) * 0.1;
+                    ctx.fillStyle = '#68d391';
+                    ctx.beginPath();
+                    ctx.arc(this.pos.x, this.pos.y, 40, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                // Draw Freeze Effect
+                if (this.freezeTimer > 0) {
+                    ctx.save();
+                    ctx.fillStyle = 'rgba(66, 153, 225, 0.5)';
+                    ctx.fillRect(this.pos.x - 20, this.pos.y - 40, 40, 80);
+                    ctx.restore();
+                }
+
                 drawSprite(ctx, sprite, this.pos.x, this.pos.y);
 
                 if (gameState.coffeeBoost > 0 && this.state !== 'sitting') {
@@ -720,9 +828,18 @@
             }
             update(dt) {
                 this.needTimer -= dt;
-                if (this.needTimer <= 0 && this.needs.length < 2) {
-                    const possibleNeeds = ['feed', 'diaper'];
-                    const newNeed = possibleNeeds[Math.floor(Math.random() * possibleNeeds.length)];
+                if (this.needTimer <= 0 && this.needs.length < 3) {
+                    const possibleNeeds = ['feed', 'diaper', 'assessment', 'hold', 'procedure', 'photo'];
+                    // Weighted random for needs
+                    let newNeed = 'feed';
+                    const roll = Math.random();
+                    if (roll < 0.3) newNeed = 'feed';
+                    else if (roll < 0.5) newNeed = 'diaper';
+                    else if (roll < 0.65) newNeed = 'assessment';
+                    else if (roll < 0.8) newNeed = 'hold';
+                    else if (roll < 0.9) newNeed = 'procedure';
+                    else newNeed = 'photo';
+
                     if (!this.needs.includes(newNeed)) {
                         this.needs.push(newNeed);
                         playSoundVisual(this.pos.x, this.pos.y, "BEEP!");
@@ -730,7 +847,12 @@
                     }
                     this.needTimer = Math.random() * 10000 + 10000;
                 }
-                if (this.needs.length > 0) gameState.sanity -= 0.01;
+                if (this.needs.length > 0) {
+                    let drain = 0.01;
+                    if (gameState.shortStaffed) drain *= 1.5; // Short-staffed increases drain
+                    if (gameState.nightShift) drain *= 1.2; // Night shift increases drain
+                    gameState.sanity -= drain;
+                }
             }
             drawBody(ctx) {
                 const scaleFactor = PIXEL_SCALE / 6;
@@ -755,6 +877,10 @@
                 ctx.font = `${20 * scaleFactor}px Arial`;
                 if (this.needs.includes('feed')) ctx.fillText('🍼', -10 * scaleFactor, -25 * scaleFactor);
                 if (this.needs.includes('diaper')) ctx.fillText('💩', 10 * scaleFactor, -25 * scaleFactor);
+                if (this.needs.includes('assessment')) ctx.fillText('📋', -20 * scaleFactor, -10 * scaleFactor);
+                if (this.needs.includes('hold')) ctx.fillText('🤱', 20 * scaleFactor, -10 * scaleFactor);
+                if (this.needs.includes('procedure')) ctx.fillText('💉', -10 * scaleFactor, 10 * scaleFactor);
+                if (this.needs.includes('photo')) ctx.fillText('📸', 10 * scaleFactor, 10 * scaleFactor);
             }
         }
 
@@ -768,32 +894,141 @@
             constructor(x, y, type, targetIsolette) {
                 super(x, y, type);
                 this.targetIsolette = targetIsolette;
-                this.target = new Vector(targetIsolette.pos.x, targetIsolette.pos.y + 40 * (PIXEL_SCALE / 4));
+
+                // Default target (isolette)
+                if (targetIsolette) {
+                    this.target = new Vector(targetIsolette.pos.x, targetIsolette.pos.y + 40 * (PIXEL_SCALE / 4));
+                } else {
+                    // For floorcleaner who doesn't target isolettes
+                    this.target = new Vector(canvas.width + 100, y);
+                }
+
                 this.state = 'moving';
                 this.speed = 1.5 * (PIXEL_SCALE / 4);
+
+                // Type specific stats
                 if (type === 'surgeon') this.speed = 2.5 * (PIXEL_SCALE / 4);
-                this.annoyanceLevel = 0; this.maxAnnoyance = 100; this.active = true;
-                this.size = SPRITES[type][0].length * PIXEL_SCALE / 2;
+                if (type === 'floorcleaner') {
+                    this.speed = 1.0 * (PIXEL_SCALE / 4);
+                    this.target = new Vector(canvas.width + 100, y); // Go straight across
+                }
+
+                this.annoyanceLevel = 0;
+                this.maxAnnoyance = 100;
+                if (type === 'medicalfamily') this.maxAnnoyance = 150;
+
+                this.active = true;
+                this.size = SPRITES[type] ? SPRITES[type][0].length * PIXEL_SCALE / 2 : 60;
+
+                // Floor cleaner noise field
+                this.noiseTimer = 0;
             }
+
             onArrive() {
+                if (this.type === 'floorcleaner') {
+                    this.markedForDeletion = true; // Despawn when reaching other side
+                    return;
+                }
+
                 this.state = 'annoying';
                 let quotes = [];
                 if (this.type === 'resident') quotes = ["Is this kid NPO?", "Vein finder?", "Ordering full workup."];
                 if (this.type === 'mom') quotes = ["Why is he crying?", "Is that machine beeping?", "I read online..."];
                 if (this.type === 'dad') quotes = ["I'm scared.", "Where's the coffee?", "Can I go home?"];
                 if (this.type === 'surgeon') quotes = ["NPO. Now.", "Call the Fellow.", "My way or highway."];
+
+                // New Enemy Quotes
+                if (this.type === 'medicalfamily') quotes = ["I'm a vet, so...", "WebMD says...", "I took anatomy once."];
+                if (this.type === 'sickvisitor') quotes = ["*cough*", "It's just allergies.", "I'm not contagious."];
+
                 this.say(quotes[Math.floor(Math.random() * quotes.length)]);
             }
+
             leave() {
-                this.active = false; this.target = new Vector(canvas.width + 50, canvas.height / 2);
-                this.state = 'moving'; this.bubble = null; setTimeout(() => { this.markedForDeletion = true; }, 5000);
+                this.active = false;
+                this.target = new Vector(canvas.width + 50, canvas.height / 2);
+                this.state = 'moving';
+                this.bubble = null;
+                setTimeout(() => { this.markedForDeletion = true; }, 5000);
             }
+
             update(dt) {
                 super.update(dt);
+
+                // Floor Cleaner Logic
+                if (this.type === 'floorcleaner') {
+                    // Noise field logic
+                    if (nurse.pos.dist(this.pos) < 150) {
+                        if (nurse.shieldTimer <= 0) { // Check shield
+                            gameState.sanity -= 0.2; // High drain
+                        }
+                        this.noiseTimer += dt;
+                        if (this.noiseTimer > 500) {
+                            playSoundVisual(this.pos.x, this.pos.y - 40, "RUMBLE");
+                            this.noiseTimer = 0;
+                        }
+                    }
+                    return; // Doesn't do normal annoyance
+                }
+
+                // Photographer Logic
+                if (this.type === 'photographer') {
+                    if (Math.random() < 0.01) {
+                        // Flash effect
+                        playSoundVisual(this.pos.x, this.pos.y, "FLASH!");
+                        playBeep(1000, 50);
+                        // Wake babies
+                        isolettes.forEach(i => {
+                            if (Math.random() < 0.3 && i.needs.length === 0) {
+                                i.needs.push('calm');
+                                addLogEntry('nurse', "Flash woke the baby!");
+                            }
+                        });
+                    }
+                }
+
+                // Attending Logic
+                if (this.type === 'attending') {
+                    if (nurse.pos.dist(this.pos) > 150) {
+                        // Must stay close
+                        if (nurse.shieldTimer <= 0) {
+                            gameState.sanity -= 0.1; // Fast drain if ignored
+                        }
+                        if (Math.random() < 0.01) addLogEntry('attending', "Where are you going?");
+                    } else {
+                        // Being near restores a bit or just stops drain
+                        gameState.sanity += 0.01;
+                    }
+                }
+
+                // Sick Visitor Logic
+                if (this.type === 'sickvisitor' && this.state === 'annoying') {
+                    if (Math.random() < 0.02) {
+                        // Sneeze particles
+                        for (let i = 0; i < 5; i++) {
+                            particles.push({
+                                x: this.pos.x,
+                                y: this.pos.y - 20,
+                                text: '*',
+                                color: '#48bb78',
+                                life: 40 + Math.random() * 20
+                            });
+                        }
+                        playSoundVisual(this.pos.x, this.pos.y - 40, "*ACHOO*");
+                    }
+                }
+
                 if (this.state === 'annoying' && this.active) {
                     this.annoyanceLevel += 0.5;
-                    let drain = 0.05; if (this.type === 'surgeon') drain = 0.15;
-                    gameState.sanity -= drain;
+                    let drain = 0.05;
+                    if (this.type === 'surgeon') drain = 0.15;
+                    if (this.type === 'medicalfamily') drain = 0.08;
+                    if (this.type === 'sickvisitor') drain = 0.07;
+
+                    if (nurse.shieldTimer <= 0) { // Check shield
+                        gameState.sanity -= drain;
+                    }
+
                     if (this.annoyanceLevel >= this.maxAnnoyance) {
                         if (this.type === 'resident' || this.type === 'surgeon') {
                             playSoundVisual(this.pos.x, this.pos.y, "BABY WOKEN!");
@@ -807,8 +1042,21 @@
                     }
                 }
             }
+
             draw(ctx) {
                 drawSprite(ctx, this.type, this.pos.x, this.pos.y);
+
+                // Draw noise field for cleaner
+                if (this.type === 'floorcleaner') {
+                    ctx.save();
+                    ctx.strokeStyle = 'rgba(200, 200, 200, 0.3)';
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.arc(this.pos.x, this.pos.y, 150, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
                 if (this.state === 'annoying') {
                     const bw = 30 * (PIXEL_SCALE / 4); const bh = 5 * (PIXEL_SCALE / 4); const by = -50 * (PIXEL_SCALE / 4);
                     ctx.fillStyle = '#feb2b2'; ctx.fillRect(this.pos.x - bw / 2, this.pos.y + by, bw, bh);
@@ -837,8 +1085,107 @@
                     if (this.type === 'pizza') ctx.fillText('🍕', 0, 0);
                     else if (this.type === 'bathroom') ctx.fillText('🧻', 0, 0);
                     else if (this.type === 'admingift') ctx.fillText('🎁', 0, 0);
+                    // New Items
+                    else if (this.type === 'sanitizer') ctx.fillText('🧴', 0, 0);
+                    else if (this.type === 'workingpump') ctx.fillText('💉', 0, 0);
+                    else if (this.type === 'coworker') ctx.fillText('👩‍⚕️', 0, 0);
+                    else if (this.type === 'trainingemail') ctx.fillText('📧', 0, 0);
+                    else if (this.type === 'missingsupply') ctx.fillText('❌', 0, 0);
+                    else if (this.type === 'brokenequip') ctx.fillText('⚠️', 0, 0);
                     ctx.restore();
                 }
+            }
+        }
+
+        class ChartingStation extends Entity {
+            constructor(x, y) {
+                super(x, y, 'charting');
+                this.size = 40 * (PIXEL_SCALE / 4);
+                this.timer = 30000; // 30 seconds before overdue
+                this.maxTimer = 30000;
+            }
+            update(dt) {
+                this.timer -= dt;
+                if (this.timer <= 0) {
+                    gameState.sanity -= 0.05; // Drain when overdue
+                    if (Math.random() < 0.01) {
+                        addLogEntry('admin', "Documentation overdue!");
+                        playBeep(200, 100);
+                    }
+                }
+            }
+            draw(ctx) {
+                ctx.save(); ctx.translate(this.pos.x, this.pos.y);
+                ctx.fillStyle = this.timer > 0 ? '#4299e1' : '#e53e3e'; // Blue normal, Red overdue
+                ctx.fillRect(-20, -20, 40, 40);
+                ctx.fillStyle = 'white'; ctx.font = '20px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText('💻', 0, 0);
+
+                // Timer bar
+                if (this.timer > 0) {
+                    ctx.fillStyle = '#48bb78';
+                    ctx.fillRect(-20, -30, 40 * (this.timer / this.maxTimer), 5);
+                }
+                ctx.restore();
+            }
+        }
+
+        class SupplyCart extends Entity {
+            constructor(x, y) {
+                super(x, y, 'supplycart');
+                this.size = 40 * (PIXEL_SCALE / 4);
+            }
+            update(dt) { }
+            draw(ctx) {
+                ctx.save(); ctx.translate(this.pos.x, this.pos.y);
+                ctx.fillStyle = '#ed8936';
+                ctx.fillRect(-20, -20, 40, 40);
+                ctx.fillStyle = 'white'; ctx.font = '20px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText('🛒', 0, 0);
+                ctx.restore();
+            }
+        }
+
+        class Pager extends Entity {
+            constructor(x, y) {
+                super(x, y, 'pager');
+                this.size = 30 * (PIXEL_SCALE / 4);
+                this.message = null;
+                this.timer = 0;
+                this.flashState = false;
+            }
+            update(dt) {
+                if (this.message) {
+                    this.timer += dt;
+                    if (this.timer > 500) {
+                        this.flashState = !this.flashState;
+                        this.timer = 0;
+                        if (this.flashState) playBeep(900, 50);
+                    }
+                    // Drain sanity if ignored too long
+                    gameState.sanity -= 0.005;
+                } else {
+                    // Random incoming message
+                    if (Math.random() < 0.0005) {
+                        const msgs = ["Lab: Critical Value", "Family on Line 1", "Pharmacy: Med Clarification", "Charge Nurse: Call me", "RT: Vent Check"];
+                        this.message = msgs[Math.floor(Math.random() * msgs.length)];
+                        playSoundVisual(this.pos.x, this.pos.y, "BEEP BEEP!");
+                    }
+                }
+            }
+            draw(ctx) {
+                ctx.save(); ctx.translate(this.pos.x, this.pos.y);
+                ctx.fillStyle = this.message && this.flashState ? '#f56565' : '#2d3748';
+                ctx.fillRect(-15, -25, 30, 50);
+                ctx.fillStyle = '#a0aec0';
+                ctx.fillRect(-10, -20, 20, 15); // Screen
+
+                if (this.message) {
+                    ctx.fillStyle = 'red';
+                    ctx.font = '20px Arial';
+                    ctx.fillText('!', 20, -20);
+                }
+                ctx.restore();
             }
         }
 
@@ -885,7 +1232,9 @@
             gameState.gameOver = false;
             gameState.coffeeBoost = 0;
             gameState.paused = false;
-            gameState.draggedSticker = null; // FIXED: Reset dragged sticker
+            gameState.stickerDelay = 0;
+            gameState.displayedScore = 0;
+            gameState.mugFillHeight = 0;
             pauseBtn.innerText = "⏸ PAUSE";
             pauseBtn.style.backgroundColor = "#e53e3e";
             restartBtn.style.display = 'none';
@@ -898,6 +1247,14 @@
             const startY = canvas.height * 0.3;
             const gapX = canvas.width * 0.25;
             const gapY = canvas.height * 0.4;
+
+            // Add Charting Station, Supply Cart, and Pager
+            entities.push(new ChartingStation(canvas.width - 60, 60));
+            entities.push(new SupplyCart(60, canvas.height - 60));
+            entities.push(new Pager(canvas.width - 120, 60)); // Add Pager
+
+            // Initial Spawn
+            spawnEnemy();
 
             let idCount = 0;
             for (let r = 0; r < rows; r++) {
@@ -917,29 +1274,95 @@
         }
 
         function spawnEnemy() {
-            if (Math.random() > 0.005) return;
+            let spawnRate = 0.005;
+            if (gameState.shortStaffed) spawnRate *= 1.3; // Increase for short-staffed
+            if (Math.random() > spawnRate) return;
             const typeRoll = Math.random();
             let type = 'resident';
-            if (typeRoll > 0.35) type = 'mom';
-            if (typeRoll > 0.7) type = 'dad';
-            if (typeRoll > 0.9) type = 'surgeon';
-            const targetIsolette = isolettes[Math.floor(Math.random() * isolettes.length)];
-            entities.push(new Enemy(Math.random() > 0.5 ? -50 : canvas.width + 50, Math.random() * canvas.height, type, targetIsolette));
+
+            // New Spawn Logic
+            // Expanded Spawn Logic
+            if (typeRoll < 0.05) type = 'floorcleaner';
+            else if (typeRoll < 0.10) type = 'photographer'; // New
+            else if (typeRoll < 0.15) type = 'attending'; // New
+            else if (typeRoll < 0.35) type = 'resident';
+            else if (typeRoll < 0.55) type = 'surgeon';
+            else if (typeRoll < 0.75) type = 'medicalfamily';
+            else if (typeRoll < 0.85) type = 'sickvisitor';
+            else if (Math.random() > 0.5) type = 'mom';
+            else type = 'dad';
+
+            if (type === 'floorcleaner') {
+                // Spawns at left, goes right
+                entities.push(new Enemy(-50, canvas.height / 2 + 100, type, null));
+            } else {
+                const targetIsolette = isolettes[Math.floor(Math.random() * isolettes.length)];
+                entities.push(new Enemy(Math.random() > 0.5 ? -50 : canvas.width + 50, Math.random() * canvas.height, type, targetIsolette));
+            }
         }
 
         function spawnItem() {
             if (Math.random() > 0.004) return;
             const roll = Math.random();
             let type = 'coffee';
-            if (roll > 0.5) type = 'pizza';
-            if (roll > 0.75) type = 'admingift';
-            if (roll > 0.9) type = 'bathroom';
+
+            // Expanded Item Pool
+            if (roll < 0.4) type = 'coffee';
+            else if (roll < 0.5) type = 'pizza';
+            else if (roll < 0.6) type = 'bathroom';
+            else if (roll < 0.7) type = 'admingift';
+            // New Items
+            else if (roll < 0.75) type = 'sanitizer';
+            else if (roll < 0.80) type = 'workingpump';
+            else if (roll < 0.85) type = 'coworker';
+            else if (roll < 0.90) type = 'trainingemail';
+            else if (roll < 0.95) type = 'missingsupply';
+            else type = 'brokenequip';
+
             entities.push(new Item(Math.random() * (canvas.width - 350) + 50, Math.random() * (canvas.height - 100) + 50, type));
         }
 
         function update(dt) {
             if (gameState.mode === 'MUG') {
-                gameState.mugRotation += 0.005;
+                if (gameState.inventoryStickers.length > 0) {
+                    gameState.stickerDelay--;
+                    if (gameState.stickerDelay <= 0) {
+                        const s = gameState.inventoryStickers.shift();
+
+                        // 2D positioning: Bottom to top, constrained to cup
+                        const mugH = 500; // Taller cup
+                        const mugW = 240; // Top width
+                        const mugBaseW = 180; // Bottom width
+                        const mugBottomY = canvas.height / 2 + mugH / 2;
+
+                        // Calculate available width at current height
+                        const currentY = mugBottomY - gameState.mugFillHeight - 30;
+                        const progress = gameState.mugFillHeight / mugH;
+                        const currentWidth = mugBaseW + (mugW - mugBaseW) * progress;
+
+                        // Constrain X to be within the cup at this height
+                        // Sticker width is approx 160, so we need to be careful
+                        const maxOffset = (currentWidth - 160) / 2;
+                        // Clamp offset to ensure it stays inside
+                        const randomOffset = (Math.random() * maxOffset * 2) - maxOffset;
+
+                        s.x = (canvas.width / 2) + randomOffset;
+                        s.y = currentY;
+                        s.angle = (Math.random() * 0.1) - 0.05; // Very slight tilt for "lined up" look
+
+                        gameState.mugFillHeight += 45; // Tighter packing
+                        gameState.displayedScore += 200; // Animate score
+
+                        gameState.mugStickers.push(s);
+                        playSoundVisual(s.x, s.y, "STICKER!");
+                        playBeep(800 + Math.random() * 400, 100);
+                        gameState.stickerDelay = 20; // Faster placement
+                    }
+                } else if (gameState.stickerDelay > 0) {
+                    gameState.stickerDelay--;
+                } else {
+                    restartBtn.style.display = 'block';
+                }
                 return;
             }
 
@@ -947,7 +1370,37 @@
 
             gameState.time += (dt / MS_PER_GAME_MINUTE);
             if (gameState.time >= SHIFT_END) endGame(true);
+            if (gameState.time >= SHIFT_END) endGame(true);
             if (gameState.sanity <= 0) { gameState.sanity = 0; endGame(false); }
+
+            // Simultaneous Alarm Logic
+            const alarmedBabies = isolettes.filter(i => i.needs.length > 0).length;
+            if (alarmedBabies > 3) {
+                gameState.sanity -= 0.05; // Extra drain
+                if (Math.random() < 0.02) {
+                    playSoundVisual(canvas.width / 2, canvas.height / 2, "ALARM SYMPHONY!");
+                    playBeep(800, 300);
+                }
+            }
+
+            // Random Positive Events (Sprint 5)
+            gameState.eventTimer += dt;
+            if (gameState.eventTimer > 30000) { // Every 30 seconds
+                gameState.eventTimer = 0;
+                if (Math.random() < 0.15) { // 15% chance
+                    const events = [
+                        { msg: "Parent brought cookies!", sanity: 20 },
+                        { msg: "All babies sleeping!", sanity: 50 },
+                        { msg: "Attending canceled rounds!", sanity: 30 },
+                        { msg: "Break nurse showed up!", sanity: 25 }
+                    ];
+                    const event = events[Math.floor(Math.random() * events.length)];
+                    gameState.sanity = Math.min(100, gameState.sanity + event.sanity);
+                    addLogEntry('admin', event.msg);
+                    playSoundVisual(canvas.width / 2, canvas.height / 2, "GOOD NEWS!");
+                    playBeep(1000, 200);
+                }
+            }
 
             spawnEnemy();
             spawnItem();
@@ -955,7 +1408,7 @@
             entities.forEach(e => e.update(dt));
             entities = entities.filter(e => !e.markedForDeletion);
 
-            entities.filter(e => ['coffee', 'pizza', 'bathroom', 'admingift'].includes(e.type)).forEach(item => {
+            entities.filter(e => ['coffee', 'pizza', 'bathroom', 'admingift', 'sanitizer', 'workingpump', 'coworker', 'trainingemail', 'missingsupply', 'brokenequip'].includes(e.type)).forEach(item => {
                 if (nurse.pos.dist(item.pos) < 40 + item.size / 2 && !item.markedForDeletion) {
                     item.markedForDeletion = true;
                     if (item.type === 'coffee') {
@@ -984,8 +1437,93 @@
                         addLogEntry('nurse', "Seriously?!");
                         playBeep(200, 300);
                     }
+                    // New Item Effects
+                    else if (item.type === 'sanitizer') {
+                        playSoundVisual(item.pos.x, item.pos.y, "SHIELD!");
+                        gameState.sanity = Math.min(100, gameState.sanity + 15);
+                        addLogEntry('nurse', "Clean hands, clear mind.");
+                        nurse.shieldTimer = 3000; // 3 seconds
+                        playBeep(600, 150);
+                    }
+                    else if (item.type === 'workingpump') {
+                        playSoundVisual(item.pos.x, item.pos.y, "FIXED!");
+                        gameState.sanity = Math.min(100, gameState.sanity + 10);
+                        // Auto-fix one isolette
+                        const needyIso = isolettes.find(i => i.needs.length > 0);
+                        if (needyIso) {
+                            needyIso.needs.shift();
+                            addLogEntry('nurse', "Pump fixed a problem!");
+                        } else {
+                            addLogEntry('nurse', "Equipment actually works!");
+                        }
+                        playBeep(700, 150);
+                    }
+                    else if (item.type === 'coworker') {
+                        playSoundVisual(item.pos.x, item.pos.y, "HELP!");
+                        gameState.sanity = Math.min(100, gameState.sanity + 25);
+                        // Dismiss one enemy
+                        const annoyingEnemy = entities.find(e => e instanceof Enemy && e.active && e.state === 'annoying');
+                        if (annoyingEnemy) {
+                            annoyingEnemy.leave();
+                            addLogEntry('nurse', "Coworker: I got this one.");
+                        } else {
+                            addLogEntry('nurse', "Coworker: Just checking in.");
+                        }
+                        playBeep(800, 150);
+                    }
+                    else if (item.type === 'trainingemail') {
+                        playSoundVisual(item.pos.x, item.pos.y, "DUE NOW!");
+                        gameState.sanity -= 20;
+                        addLogEntry('admin', "MANDATORY MODULE DUE.");
+                        nurse.freezeTimer = 1000; // Freeze for 1s
+                        playBeep(150, 400);
+                    }
+                    else if (item.type === 'missingsupply') {
+                        playSoundVisual(item.pos.x, item.pos.y, "EMPTY!");
+                        gameState.sanity -= 15;
+                        addLogEntry('nurse', "Where are the wipes?!");
+                        playBeep(200, 300);
+                    }
+                    else if (item.type === 'brokenequip') {
+                        playSoundVisual(item.pos.x, item.pos.y, "ALARM!");
+                        gameState.sanity -= 10;
+                        addLogEntry('nurse', "Why is this broken?!");
+                        playBeep(800, 500); // Long beep
+                    }
                 }
             });
+
+            // Charting Station Interaction
+            const chartingStation = entities.find(e => e instanceof ChartingStation);
+            if (chartingStation && nurse.pos.dist(chartingStation.pos) < 60) {
+                if (chartingStation.timer < chartingStation.maxTimer) {
+                    chartingStation.timer = Math.min(chartingStation.maxTimer, chartingStation.timer + dt * 2); // Recharge
+                    if (chartingStation.timer >= chartingStation.maxTimer) {
+                        addLogEntry('nurse', "Documentation complete.");
+                        playSoundVisual(chartingStation.pos.x, chartingStation.pos.y, "SAVED!");
+                    }
+                }
+            }
+
+            // Supply Cart Interaction
+            const supplyCart = entities.find(e => e instanceof SupplyCart);
+            if (supplyCart && nurse.pos.dist(supplyCart.pos) < 60) {
+                // Just a visual interaction for now, maybe add supply count later
+                if (Math.random() < 0.01) {
+                    addLogEntry('nurse', "Restocked supplies.");
+                }
+            }
+
+            // Pager Interaction
+            const pager = entities.find(e => e instanceof Pager);
+            if (pager && pager.message && nurse.pos.dist(pager.pos) < 60) {
+                // Click to clear (simulated by proximity for now, or add click handler later)
+                // For now, let's just auto-clear if close enough for 1 second? 
+                // No, let's make it instant for better flow
+                addLogEntry('nurse', "Message acknowledged.");
+                pager.message = null;
+                playSoundVisual(pager.pos.x, pager.pos.y, "CLEARED");
+            }
 
             if (nurse.state === 'idle') {
                 isolettes.forEach(iso => {
@@ -994,20 +1532,48 @@
                         if (need === 'feed') {
                             playSoundVisual(iso.pos.x, iso.pos.y, "+15g");
                             gameState.score += 100;
-                            addLogEntry('nurse', "Baby fed.");
+                            addLogEntry('nurse', nurseResponses.feedBaby[Math.floor(Math.random() * nurseResponses.feedBaby.length)]);
                             playBeep(700, 100);
                         }
                         else if (need === 'diaper') {
                             playSoundVisual(iso.pos.x, iso.pos.y, "Clean!");
                             gameState.score += 50;
-                            addLogEntry('nurse', "Diaper changed.");
+                            addLogEntry('nurse', nurseResponses.changeDiaper[Math.floor(Math.random() * nurseResponses.changeDiaper.length)]);
                             playBeep(650, 100);
                         }
                         else if (need === 'calm') {
                             playSoundVisual(iso.pos.x, iso.pos.y, "Shhh...");
                             gameState.score += 20;
-                            addLogEntry('nurse', "Baby calmed.");
+                            addLogEntry('nurse', nurseResponses.calmBaby[Math.floor(Math.random() * nurseResponses.calmBaby.length)]);
                             playBeep(450, 150);
+                        }
+                        // New Needs
+                        else if (need === 'assessment') {
+                            playSoundVisual(iso.pos.x, iso.pos.y, "Assessed");
+                            gameState.score += 150;
+                            addLogEntry('nurse', "Assessment complete. Stable.");
+                            playBeep(500, 200);
+                        }
+                        else if (need === 'hold') {
+                            playSoundVisual(iso.pos.x, iso.pos.y, "Holding...");
+                            gameState.score += 75;
+                            addLogEntry('nurse', "Parent holding baby.");
+                            // Simulate time taken
+                            nurse.freezeTimer = 1000;
+                            playBeep(400, 300);
+                        }
+                        else if (need === 'procedure') {
+                            playSoundVisual(iso.pos.x, iso.pos.y, "Procedure");
+                            gameState.sanity -= 5; // Stressful
+                            gameState.score += 100;
+                            addLogEntry('nurse', "Procedure done. Parents watched.");
+                            playBeep(600, 200);
+                        }
+                        else if (need === 'photo') {
+                            playSoundVisual(iso.pos.x, iso.pos.y, "Cheese!");
+                            gameState.score += 50;
+                            addLogEntry('nurse', "Cute photo taken.");
+                            playBeep(800, 50);
                         }
                     }
                 });
@@ -1018,11 +1584,21 @@
             }
 
             if (nurse.state !== 'sitting') {
-                entities.filter(e => ['resident', 'mom', 'dad', 'surgeon'].includes(e.type) && e.active && e.state === 'annoying').forEach(enemy => {
+                entities.filter(e => ['resident', 'mom', 'dad', 'surgeon', 'medicalfamily', 'sickvisitor'].includes(e.type) && e.active && e.state === 'annoying').forEach(enemy => {
                     if (nurse.pos.dist(enemy.pos) < 60 + enemy.size / 2) {
-                        nurse.say("Read the chart!");
+                        // Sick visitor check
+                        if (enemy.type === 'sickvisitor' && gameState.sanity < 100) {
+                            nurse.say("I can't deal with this right now!");
+                            return;
+                        }
+
+                        nurse.say(nurseResponses.dismissEnemy[Math.floor(Math.random() * nurseResponses.dismissEnemy.length)]);
                         enemy.leave();
-                        gameState.score += 200;
+
+                        let score = 200;
+                        if (enemy.type === 'medicalfamily') score = 250;
+                        gameState.score += score;
+
                         playSoundVisual(enemy.pos.x, enemy.pos.y, "Handled.");
                         playBeep(900, 150);
                     }
@@ -1073,100 +1649,84 @@
             ctx.fillStyle = '#1a202c';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            ctx.fillStyle = '#2d3748';
-            ctx.fillRect(canvas.width - 300, 0, 300, canvas.height);
-            ctx.strokeStyle = '#4a5568';
-            ctx.lineWidth = 4;
-            ctx.strokeRect(canvas.width - 300, 0, 300, canvas.height);
+            const mugX = canvas.width / 2;
+            const mugY = canvas.height / 2;
+            const mugW = 240; // Wider top
+            const mugBaseW = 180; // Narrower bottom
+            const mugH = 500; // Taller cup
 
-            ctx.fillStyle = 'white';
-            ctx.font = '40px "Vt323"';
-            ctx.textAlign = 'center';
-            ctx.fillText("STICKER STASH", canvas.width - 150, 50);
-            ctx.font = '20px "Vt323"';
-            ctx.fillText("Drag to Mug!", canvas.width - 150, 80);
-
-            gameState.inventoryStickers.forEach(s => {
-                drawSticker(s);
-            });
-
-            if (gameState.draggedSticker) {
-                drawSticker(gameState.draggedSticker);
-            }
-
-            const mugX = (canvas.width - 300) / 2;
-            const mugY = canvas.height / 2 + 50;
-            const mugW = 180;
-            const mugH = 300;
-
+            // Draw Shadow/Outline Cup
             ctx.save();
+            ctx.translate(mugX, mugY);
 
-            ctx.fillStyle = '#718096';
+            // Cup Shape Path
             ctx.beginPath();
-            ctx.roundRect(mugX + 90, mugY - 100, 60, 150, 20);
-            ctx.fill();
-            ctx.fillStyle = '#1a202c';
-            ctx.beginPath();
-            ctx.roundRect(mugX + 100, mugY - 90, 40, 130, 15);
-            ctx.fill();
-
-            ctx.fillStyle = '#e2e8f0';
-            ctx.beginPath();
-            ctx.moveTo(mugX - mugW / 2 - 20, mugY - mugH / 2);
-            ctx.lineTo(mugX + mugW / 2 + 20, mugY - mugH / 2);
-            ctx.lineTo(mugX + mugW / 2, mugY + mugH / 2);
-            ctx.lineTo(mugX - mugW / 2, mugY + mugH / 2);
+            ctx.moveTo(-mugW / 2, -mugH / 2);
+            ctx.lineTo(mugW / 2, -mugH / 2);
+            ctx.lineTo(mugBaseW / 2, mugH / 2);
+            ctx.lineTo(-mugBaseW / 2, mugH / 2);
             ctx.closePath();
+
+            // Fill with shadow color
+            ctx.fillStyle = '#2d3748';
             ctx.fill();
 
-            const grad = ctx.createLinearGradient(mugX - mugW / 2, 0, mugX + mugW / 2, 0);
-            grad.addColorStop(0, 'rgba(0,0,0,0.2)');
-            grad.addColorStop(0.2, 'rgba(0,0,0,0)');
-            grad.addColorStop(0.8, 'rgba(0,0,0,0)');
-            grad.addColorStop(1, 'rgba(0,0,0,0.2)');
-            ctx.fillStyle = grad;
-            ctx.fill();
+            // Outline
+            ctx.strokeStyle = '#4a5568';
+            ctx.lineWidth = 8;
+            ctx.stroke();
 
-            ctx.fillStyle = '#63b3ed';
-            ctx.fillRect(mugX - 10, mugY - mugH / 2 - 80, 20, 100);
-
-            ctx.clip();
-
-            gameState.mugStickers.forEach(s => {
-                const radius = mugW / 2;
-                const theta = s.angle + gameState.mugRotation;
-                const xPos = mugX + radius * Math.sin(theta);
-                const zPos = Math.cos(theta);
-
-                if (zPos > 0) {
-                    const scaleX = zPos;
-                    ctx.save();
-                    ctx.translate(xPos, mugY - mugH / 2 + s.height);
-                    ctx.scale(scaleX, 1);
-
-                    ctx.fillStyle = s.color;
-                    ctx.beginPath();
-                    ctx.roundRect(-s.width / 2, -s.h / 2, s.width, s.h, 5);
-                    ctx.fill();
-                    ctx.strokeStyle = 'white';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                    ctx.fillStyle = 'black';
-                    ctx.font = '20px "Vt323"';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(s.text, 0, 0);
-
-                    ctx.restore();
-                }
-            });
+            // Straw (optional detail)
+            ctx.fillStyle = '#4299e1';
+            ctx.fillRect(20, -mugH / 2 - 80, 20, 100);
 
             ctx.restore();
 
+            // Draw Stickers
+            gameState.mugStickers.forEach(s => {
+                ctx.save();
+                ctx.translate(s.x, s.y);
+                ctx.rotate(s.angle);
+
+                // Sticker Shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.beginPath();
+                ctx.roundRect(-s.width / 2 + 4, -s.h / 2 + 4, s.width, s.h, 5);
+                ctx.fill();
+
+                // Sticker Body
+                ctx.fillStyle = s.color;
+                ctx.beginPath();
+                ctx.roundRect(-s.width / 2, -s.h / 2, s.width, s.h, 5);
+                ctx.fill();
+
+                // Sticker Outline
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Text
+                ctx.fillStyle = 'black';
+                ctx.font = '20px "Vt323"';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(s.text, 0, 0);
+
+                ctx.restore();
+            });
+
+            // Draw Score
             ctx.fillStyle = 'white';
-            ctx.font = '40px "Vt323"';
+            ctx.font = '60px "Vt323"';
             ctx.textAlign = 'center';
-            ctx.fillText("SHIFT COMPLETE", mugX, 50);
+            ctx.fillText(`SCORE: ${gameState.displayedScore}`, mugX, 100);
+
+            if (gameState.inventoryStickers.length === 0 && gameState.stickerDelay <= 0) {
+                ctx.fillStyle = '#48bb78';
+                ctx.font = '40px "Vt323"';
+                ctx.textAlign = 'center';
+                ctx.fillText("SHIFT COMPLETE", mugX, canvas.height - 50);
+            }
         }
 
         function drawSticker(s) {
@@ -1230,27 +1790,39 @@
             gameUiTop.style.display = 'none';
             logPanel.style.display = 'none';
             messageBox.style.opacity = 0;
-            restartBtn.style.display = 'block';
+            restartBtn.style.display = 'none'; // Hide initially
 
             const stickerPhrases = [
+                // Original phrases
                 "Tiny Dictator", "NPO means NO", "Coffee IV", "Chart This",
                 "Screaming Potato", "Vein Whisperer", "Chaos Coordinator",
-                "Nap Time?", "Code Brown", "Shhh!", "Tired.", "Nope."
+                "Nap Time?", "Code Brown", "Shhh!", "Tired.", "Nope.",
+                // Sprint 5: New phrases
+                "Hand Hygiene Queen", "Alarm Silencer", "NPO Enforcer",
+                "No Flash Photos", "I Need Backup", "Intake/Output",
+                "15 Minute Chart", "Family Education", "Code Brown Survivor",
+                "Tandem Nursing", "Skin-to-Skin", "Beep Beep Beep",
+                "Where's RT?", "Call the Fellow", "Not My Patient",
+                "I Forgot to Chart", "Pizza Party?", "Mandatory Training",
+                "Float Pool", "Short Staffed"
             ];
             const colors = ['#feb2b2', '#fbd38d', '#9ae6b4', '#81e6d9', '#90cdf4', '#d6bcfa'];
 
             const count = Math.max(1, Math.floor(gameState.score / 200));
 
             gameState.inventoryStickers = [];
+            gameState.displayedScore = 0; // Reset displayed score
+            gameState.mugFillHeight = 0; // Reset fill height
+
             for (let i = 0; i < count; i++) {
                 const txt = stickerPhrases[Math.floor(Math.random() * stickerPhrases.length)];
                 const col = colors[Math.floor(Math.random() * colors.length)];
                 const s = new Sticker(txt, col);
-                s.x = canvas.width - 150;
-                s.y = 120 + i * 60;
+                // No x/y needed for inventory anymore
                 gameState.inventoryStickers.push(s);
             }
             gameState.mugStickers = [];
+            gameState.stickerDelay = 60; // Initial delay
         }
 
         // Global error handler
@@ -1307,15 +1879,6 @@
             const pos = getMousePos(e);
 
             if (gameState.mode === 'MUG') {
-                for (let i = gameState.inventoryStickers.length - 1; i >= 0; i--) {
-                    const s = gameState.inventoryStickers[i];
-                    if (pos.x > s.x - s.width / 2 && pos.x < s.x + s.width / 2 &&
-                        pos.y > s.y - s.h / 2 && pos.y < s.y + s.h / 2) {
-                        gameState.draggedSticker = s;
-                        gameState.inventoryStickers.splice(i, 1);
-                        return;
-                    }
-                }
                 return;
             }
 
