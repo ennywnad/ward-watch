@@ -32,10 +32,13 @@ Survive 7am to 7pm. Collect stickers for your big dumb mug. Try not to lose your
 
 ### The Good Stuff (Things That Keep You Alive)
 
-- ☕ **Coffee** - Temporarily makes you fast. You'll need 6 more in an hour.
+- ☕ **Coffee** - Temporarily makes you fast. You'll need 6 more in an hour. (2.5x speed boost on Night Shift!)
 - 🍕 **Pizza** - Cold. From the break room. Been there since Tuesday. Still better than nothing. +Sanity
 - 🧻 **Bathroom Break** - The 30 seconds of peace you get while hiding in the staff bathroom. Maximum sanity restoration.
 - 🪑 **The Chair** - Legend says if you sit down, you heal. Most nurses have forgotten what sitting feels like.
+- 🧴 **Hand Sanitizer** - Creates a protective shield for 3 seconds. Enemies can't drain your sanity. Clean hands, clear mind.
+- 💉 **Working Equipment** - Miraculously fixes one baby's problem automatically. It's like finding a unicorn.
+- 👩‍⚕️ **Coworker Support** - Another nurse handles one annoying person for you. "I got this one." Bless them.
 
 ### The Bad Stuff (Your Shift In A Nutshell)
 
@@ -45,7 +48,21 @@ Survive 7am to 7pm. Collect stickers for your big dumb mug. Try not to lose your
 
 - 👪 **The Parents** - Terrified. Well-meaning. Read one article on WebMD. Will ask you 47 questions about why that machine is beeping. (It's always beeping. That's what machines do. Welcome to the NICU.)
 
+- 🧹 **Floor Cleaner Guy** - Moves straight across the room with his giant machine. Cannot be dismissed. Creates a NOISE FIELD - stand too close and your sanity drains fast. Just... let him pass.
+
+- 👨‍⚕️ **"Medical" Family Member** - "I'm a vet, so..." No. Just no. More persistent than regular family. Will argue with you about WebMD articles.
+
+- 🤢 **Sick Visitor** - Has a cold. Sneezes everywhere. Can't be dismissed if your sanity is low because you "can't deal with this right now."
+
+- 📸 **Photographer** - Takes flash photos that wake up sleeping babies. Parents want memories. You want them to leave.
+
+- 👔 **Too-Early Attending** - Shows up for rounds at 6:45 AM. You must stand near them while they round or your sanity drains. Fast.
+
 - 🎁 **Admin "Wellness" Gifts** - A rock. A pen. A single pizza party for 47 staff members. Morale will continue until beatings improve. Actually *damages* your sanity because you know what would help? Adequate staffing.
+
+- 📧 **Mandatory Training Email** - "DUE TODAY" - Freezes you in place for 1 second while you contemplate whether you should just quit. -20 Sanity.
+- ❌ **Missing Supplies** - The cabinet is empty again. Who keeps taking all the wipes? -15 Sanity.
+- ⚠️ **Broken Equipment** - Creates an urgent alarm sound. Of course it's broken. Everything is broken. -10 Sanity.
 
 ### The Babies
 
@@ -53,45 +70,91 @@ Your 6 isolettes contain tiny potatoes who will need:
 - 🍼 **Feeding** - Every 2-3 hours, just like real life, except these ones beep
 - 💩 **Diaper Changes** - Output documentation is very important (and disgusting)
 - 😭 **Calming** - Usually needed after a resident "helps"
+- 📋 **Assessment** - Attending ordered a full assessment. Time to check everything. +150 points
+- 🤱 **Hold** - Parent wants to hold baby. Takes extra time but it's worth it. +75 points
+- 💉 **Procedure** - Needs a medical procedure. Parents watching = stressful. -5 Sanity, +100 points
+- 📸 **Photo** - Quick photo for the parents. Easy win. +50 points
 
 Ignore them at your peril. They WILL let you know they're unhappy. So will your sanity bar.
+
+**Special:** If 3+ babies are crying at once, you enter "ALARM SYMPHONY" mode with extra sanity drain. Welcome to the chaos.
 
 ## Scoring
 
 - **Feed a baby:** +100 points (wow, thanks, doing your literal job)
 - **Change a diaper:** +50 points (hazard pay not included)
 - **Calm a screaming baby:** +20 points (and the satisfaction of silence)
-- **Successfully dismiss someone annoying:** +200 points (priceless)
 
 ## The Mug Screen (AKA Your "Reward")
 
 Survive the shift and you'll earn stickers based on your score. Drag them onto your emotional support Stanley cup.
 
-Sticker options include:
+Sticker options include 30+ phrases like:
 - "NPO means NO" - For when someone asks you for the 8th time
 - "Coffee IV" - Self-explanatory
 - "Tiny Dictator" - What babies actually are
-- "Chart This" - Your response to everything
-- "Chaos Coordinator" - Your actual job title
-- "Nope." - Your favorite complete sentence
+- "Hand Hygiene Queen" - You've sanitized 400 times today
+- "Code Brown Survivor" - Self-explanatory (unfortunately)
+- "Where's RT?" - The eternal question
+- "Short Staffed" - Every. Single. Shift.
+- "I Forgot to Chart" - Honest and relatable
+- "Float Pool" - The anxiety is real
 
-Your mug spins. Because of course it does. You earned those stickers. Display them with the same energy you have at 6:58pm when someone asks if you can stay late.
+Your mug is now a tall 2D outline that fills bottom-to-top as stickers pour in. They stack neatly, constrained within the cup. No more 3D spinning - just pure, organized chaos.
+
+## Environmental Systems
+
+### 💻 Charting Station
+Located in the top right corner. You must visit it every 30 seconds to "document" or it turns red and starts draining your sanity. Admin will yell at you. Because of course they will.
+
+### 🛒 Supply Cart  
+Bottom left corner. Visit to restock supplies. Sometimes you just need to pretend you're organized.
+
+### 📟 Pager System
+Top right. Receives random messages like "Lab: Critical Value" or "Family on Line 1." Must be acknowledged (walk up to it) or it beeps forever and drains sanity. Just like real life.
+
+## Random Events
+
+Every 30 seconds, there's a chance for a positive event:
+- **Parent brought cookies!** (+20 Sanity)
+- **All babies sleeping!** (+50 Sanity - it's a miracle)
+- **Attending canceled rounds!** (+30 Sanity)
+- **Break nurse showed up!** (+25 Sanity - angels do exist)
+
+## Difficulty Modes
+
+Want more chaos? Enable these modes (via console: `gameState.shortStaffed = true` or `gameState.nightShift = true`):
+
+### 🔥 Short-Staffed Mode
+- Enemy spawn rate +30%
+- Sanity drain +50%
+- Score multiplier 2x (because you earned it)
+
+### 🌙 Night Shift Mode
+- Coffee boost increased to 2.5x speed (you NEED it)
+- Sanity drain +20%
+- Darker atmosphere (coming soon™)
 
 ## Tips For Survival
 
-1. **Chase the coffee immediately.** You're not fast enough without it.
+1. **Chase the coffee immediately.** You're not fast enough without it. (Even faster on Night Shift!)
 2. **The chair is a trap and a blessing.** Sit to heal, but you'll have to stand up eventually.
 3. **Surgeons move FAST.** They're like the velociraptors of the hospital.
 4. **Click people to handle them.** Walk up to that resident and give them the "read the chart" treatment.
 5. **Bathroom breaks are SACRED.** That +40 sanity boost? Critical.
 6. **Watch your sanity bar.** When it's red, you're one "Pizza Party Friday!" announcement away from a breakdown.
+7. **Grab the sanitizer for a shield.** 3 seconds of invincibility is everything.
+8. **Chart regularly.** Don't let that station go red or Admin haunts you.
+9. **Clear your pager.** That beeping will drive you insane (literally).
+10. **Photographer flash = chaos.** Babies will wake up. Be ready.
 
 ## Known "Features"
 
-- Sometimes the mug rotation gets weird. Just like your sleep schedule.
+- The mug is now 2D and fills bottom-to-top. The 3D spinning mug has been retired (it was making us dizzy).
 - The log panel scrolls in reverse because time moves backwards after midnight.
 - Audio might not work on first load. Click something. Browsers are picky. Unlike babies, who scream regardless.
 - The game doesn't save your mug. Neither does your hospital save your emotional state. It's called *realism*.
+- Visual effects include steam from coffee and storm clouds when sanity is low. You earned that dramatic flair.
 
 ## Technical Stuff (For The Nerds)
 
@@ -142,7 +205,7 @@ A: Fork it. Add 400 stickers. Add a sticker that says "I Survived My Manager's M
 A: We actually toned it down for gameplay reasons.
 
 **Q: Where's the charting minigame?**  
-A: You're right, we should add 45 minutes of documentation for every 2-minute task. Next version.
+A: It's there! The blue computer in the corner. Go document every 30 seconds or Admin gets mad. You're welcome.
 
 **Q: My score is low. Am I bad at this?**  
 A: Your score is fine. The system is broken. Have a rock.
