@@ -234,6 +234,24 @@
             transform: translate(2px, 2px);
             box-shadow: 2px 2px 0px #000;
         }
+
+        #settings-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 150;
+            pointer-events: auto;
+        }
+
+        #settings-overlay input[type="range"] {
+            cursor: pointer;
+        }
     </style>
 </head>
 
@@ -298,6 +316,46 @@
                 </div>
                 <p class="text-md italic mb-4 text-gray-400">"Earn stickers for your big dumb mug!"</p>
                 <button class="btn" onclick="startGame()">CLOCK IN</button>
+                <button class="btn" onclick="openSettings()" style="margin-top: 0.5rem; background: #718096;">
+                    ⚙ SETTINGS
+                </button>
+            </div>
+        </div>
+
+        <div id="settings-overlay" style="display: none;">
+            <div class="modal-content" style="max-width: 400px;">
+                <h2 class="text-3xl mb-4 text-blue-300">SETTINGS</h2>
+
+                <div class="text-left space-y-4">
+                    <div class="flex justify-between items-center">
+                        <label>Volume</label>
+                        <input type="range" id="volume-slider" min="0" max="100" value="50" class="w-32"
+                            onchange="updateVolume(this.value)">
+                    </div>
+
+                    <div class="flex justify-between items-center">
+                        <label>Night Shift Mode</label>
+                        <button id="night-toggle" class="btn text-sm py-1" onclick="toggleNightShift()">
+                            OFF
+                        </button>
+                    </div>
+
+                    <div class="flex justify-between items-center">
+                        <label>Short Staffed Mode</label>
+                        <button id="staff-toggle" class="btn text-sm py-1" onclick="toggleShortStaffed()">
+                            OFF
+                        </button>
+                    </div>
+
+                    <div class="flex justify-between items-center">
+                        <label>Reset Tutorial</label>
+                        <button class="btn text-sm py-1" onclick="resetTutorial()">
+                            RESET
+                        </button>
+                    </div>
+                </div>
+
+                <button class="btn mt-6" onclick="closeSettings()">DONE</button>
             </div>
         </div>
     </div>
@@ -338,13 +396,86 @@
                 oscillator.connect(gainNode);
                 gainNode.connect(audioCtx.destination);
                 oscillator.frequency.value = frequency;
-                gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gainNode.gain.setValueAtTime(0.3 * settings.volume, audioCtx.currentTime);
                 gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration / 1000);
                 oscillator.start();
                 oscillator.stop(audioCtx.currentTime + duration / 1000);
             } catch (e) {
                 // Audio failed, no big deal
             }
+        }
+
+
+
+        const settings = {
+            volume: 0.5,
+            nightShift: false,
+            shortStaffed: false,
+            tutorialSeen: false
+        };
+
+        // Load from localStorage on page load
+        function loadSettings() {
+            const saved = localStorage.getItem('nicuSettings');
+            if (saved) {
+                Object.assign(settings, JSON.parse(saved));
+                gameState.nightShift = settings.nightShift;
+                gameState.shortStaffed = settings.shortStaffed;
+            }
+            updateSettingsUI();
+        }
+
+        function saveSettings() {
+            localStorage.setItem('nicuSettings', JSON.stringify(settings));
+        }
+
+        function openSettings() {
+            document.getElementById('settings-overlay').style.display = 'flex';
+            updateSettingsUI();
+        }
+
+        function closeSettings() {
+            document.getElementById('settings-overlay').style.display = 'none';
+            saveSettings();
+        }
+
+        function updateSettingsUI() {
+            const volSlider = document.getElementById('volume-slider');
+            if (volSlider) volSlider.value = settings.volume * 100;
+
+            const nightBtn = document.getElementById('night-toggle');
+            if (nightBtn) {
+                nightBtn.innerText = settings.nightShift ? 'ON' : 'OFF';
+                nightBtn.style.background = settings.nightShift ? '#48bb78' : '#e53e3e';
+            }
+
+            const staffBtn = document.getElementById('staff-toggle');
+            if (staffBtn) {
+                staffBtn.innerText = settings.shortStaffed ? 'ON' : 'OFF';
+                staffBtn.style.background = settings.shortStaffed ? '#48bb78' : '#e53e3e';
+            }
+        }
+
+        function updateVolume(val) {
+            settings.volume = val / 100;
+        }
+
+        function toggleNightShift() {
+            settings.nightShift = !settings.nightShift;
+            gameState.nightShift = settings.nightShift;
+            updateSettingsUI();
+        }
+
+        function toggleShortStaffed() {
+            settings.shortStaffed = !settings.shortStaffed;
+            gameState.shortStaffed = settings.shortStaffed;
+            updateSettingsUI();
+        }
+
+        function resetTutorial() {
+            settings.tutorialSeen = false;
+            saveSettings();
+            alert('Tutorial will show on next shift!');
         }
 
         let gameState = {
@@ -365,8 +496,33 @@
             // Sprint 5: Difficulty modifiers
             shortStaffed: false,
             nightShift: false,
-            eventTimer: 0
+            eventTimer: 0,
+            // Sprint 5: Stats
+            stats: {
+                babiesFed: 0,
+                diapersChanged: 0,
+                familiesCalmed: 0,
+                alarmsSilenced: 0,
+                coffeeConsumed: 0
+            },
+            // Sprint 5: Tutorial
+            tutorial: {
+                moveShown: false,
+                babyShown: false,
+                enemyShown: false,
+                sanityShown: false
+            },
+            tutorialMessage: { text: "", timer: 0, alpha: 0 }
         };
+
+        const keys = {
+            w: false, a: false, s: false, d: false,
+            up: false, down: false, left: false, right: false
+        };
+
+        // Night Shift State
+        gameState.flickerTimer = 0;
+        gameState.flickerIntensity = 0;
 
         let entities = [];
         let particles = [];
@@ -747,6 +903,43 @@
                 if (this.freezeTimer > 0) {
                     this.freezeTimer -= dt;
                     return; // Don't move or act
+                }
+
+                // Keyboard Movement
+                if (keys.w || keys.a || keys.s || keys.d || keys.up || keys.down || keys.left || keys.right) {
+                    // Cancel sitting state
+                    if (this.state === 'sitting') {
+                        this.state = 'idle';
+                    }
+
+                    // Cancel click-to-move target
+                    this.target = null;
+                    this.state = 'idle';
+
+                    // Calculate movement vector
+                    let dx = 0, dy = 0;
+                    if (keys.w || keys.up) dy -= 1;
+                    if (keys.s || keys.down) dy += 1;
+                    if (keys.a || keys.left) dx -= 1;
+                    if (keys.d || keys.right) dx += 1;
+
+                    // Normalize diagonal movement
+                    if (dx !== 0 && dy !== 0) {
+                        dx *= 0.707;
+                        dy *= 0.707;
+                    }
+
+                    // Apply movement
+                    if (dx !== 0 || dy !== 0) {
+                        this.pos.x += dx * this.speed;
+                        this.pos.y += dy * this.speed;
+
+                        // Clamp to canvas bounds
+                        this.pos.x = Math.max(30, Math.min(canvas.width - 30, this.pos.x));
+                        this.pos.y = Math.max(30, Math.min(canvas.height - 30, this.pos.y));
+
+                        this.state = 'walking'; // For animation system (if we had one, but keeps state consistent)
+                    }
                 }
 
                 // Shield Logic
@@ -1214,9 +1407,9 @@
         }
 
         function initGame() {
+            loadSettings(); // Load settings at start of game
             initAudio(); // FIXED: Initialize audio on first user interaction
             gameState.mode = 'GAME';
-            gameState.running = true;
             resizeCanvas();
             entities = [];
             particles = [];
@@ -1235,11 +1428,35 @@
             gameState.stickerDelay = 0;
             gameState.displayedScore = 0;
             gameState.mugFillHeight = 0;
+            // Reset Stats
+            gameState.stats = {
+                babiesFed: 0,
+                diapersChanged: 0,
+                familiesCalmed: 0,
+                alarmsSilenced: 0,
+                coffeeConsumed: 0
+            };
+            // Reset Tutorial State (if not seen)
+            if (!settings.tutorialSeen) {
+                gameState.tutorial = {
+                    moveShown: false,
+                    babyShown: false,
+                    enemyShown: false,
+                    sanityShown: false
+                };
+                gameState.tutorialMessage = { text: "", timer: 0, alpha: 0 };
+            }
             pauseBtn.innerText = "⏸ PAUSE";
             pauseBtn.style.backgroundColor = "#e53e3e";
             restartBtn.style.display = 'none';
             gameUiTop.style.display = 'flex';
             logPanel.style.display = 'flex';
+
+            // Randomly decide if it's a night shift
+            gameState.nightShift = Math.random() < 0.3; // 30% chance of night shift
+            if (gameState.nightShift) {
+                addLogEntry('admin', "It's a night shift. Good luck with the dark.");
+            }
 
             const cols = 3;
             const rows = 2;
@@ -1323,6 +1540,38 @@
         }
 
         function update(dt) {
+            // Night Shift Flicker Logic
+            if (gameState.nightShift) {
+                gameState.flickerTimer -= dt;
+                if (gameState.flickerTimer <= 0) {
+                    // Random chance of flicker
+                    if (Math.random() < 0.1) {
+                        gameState.flickerIntensity = Math.random() * 3;
+                    } else {
+                        gameState.flickerIntensity = 0;
+                    }
+                    gameState.flickerTimer = 100 + Math.random() * 200;
+                }
+            } else {
+                gameState.flickerIntensity = 0;
+            }
+
+            if (gameState.mode === 'REPORTOFF') {
+                gameState.cutsceneTimer += dt;
+
+                // Incoming nurse walks in
+                if (gameState.cutsceneTimer < 2000) {
+                    gameState.incomingNursePos.x -= (dt / 1000) * 100; // Move left
+                    if (gameState.incomingNursePos.x < canvas.width - 100) gameState.incomingNursePos.x = canvas.width - 100;
+                }
+
+                // End cutscene after 6 seconds
+                if (gameState.cutsceneTimer > 6000) {
+                    gameState.mode = 'SUMMARY';
+                }
+                return;
+            }
+
             if (gameState.mode === 'MUG') {
                 if (gameState.inventoryStickers.length > 0) {
                     gameState.stickerDelay--;
@@ -1415,6 +1664,7 @@
                         gameState.coffeeBoost = 5000;
                         playSoundVisual(item.pos.x, item.pos.y, "CAFFEINE!");
                         gameState.sanity = Math.min(100, gameState.sanity + 5);
+                        gameState.stats.coffeeConsumed++; // Track stat
                         addLogEntry('nurse', "Chugged coffee.");
                         playBeep(800, 100);
                     }
@@ -1532,18 +1782,21 @@
                         if (need === 'feed') {
                             playSoundVisual(iso.pos.x, iso.pos.y, "+15g");
                             gameState.score += 100;
+                            gameState.stats.babiesFed++; // Track stat
                             addLogEntry('nurse', nurseResponses.feedBaby[Math.floor(Math.random() * nurseResponses.feedBaby.length)]);
                             playBeep(700, 100);
                         }
                         else if (need === 'diaper') {
                             playSoundVisual(iso.pos.x, iso.pos.y, "Clean!");
                             gameState.score += 50;
+                            gameState.stats.diapersChanged++; // Track stat
                             addLogEntry('nurse', nurseResponses.changeDiaper[Math.floor(Math.random() * nurseResponses.changeDiaper.length)]);
                             playBeep(650, 100);
                         }
                         else if (need === 'calm') {
                             playSoundVisual(iso.pos.x, iso.pos.y, "Shhh...");
                             gameState.score += 20;
+                            gameState.stats.alarmsSilenced++; // Track stat
                             addLogEntry('nurse', nurseResponses.calmBaby[Math.floor(Math.random() * nurseResponses.calmBaby.length)]);
                             playBeep(450, 150);
                         }
@@ -1598,6 +1851,7 @@
                         let score = 200;
                         if (enemy.type === 'medicalfamily') score = 250;
                         gameState.score += score;
+                        gameState.stats.familiesCalmed++; // Track stat
 
                         playSoundVisual(enemy.pos.x, enemy.pos.y, "Handled.");
                         playBeep(900, 150);
@@ -1612,17 +1866,99 @@
                 return p.life > 0;
             });
 
+            // Tutorial Logic
+            if (!settings.tutorialSeen) {
+                // Movement Hint
+                if (!gameState.tutorial.moveShown && gameState.time < SHIFT_START + 5) {
+                    showTutorial("Use WASD or Arrows to Move. Click to Interact.");
+                    gameState.tutorial.moveShown = true;
+                }
+
+                // Baby Hint
+                if (!gameState.tutorial.babyShown) {
+                    const needyIso = isolettes.find(i => i.needs.length > 0);
+                    if (needyIso) {
+                        showTutorial("Baby needs help! Click the isolette!");
+                        gameState.tutorial.babyShown = true;
+                    }
+                }
+
+                // Enemy Hint
+                if (!gameState.tutorial.enemyShown) {
+                    const enemy = entities.find(e => e instanceof Enemy && e.active && e.state === 'annoying');
+                    if (enemy) {
+                        showTutorial("They are annoying! Click them to dismiss!");
+                        gameState.tutorial.enemyShown = true;
+                    }
+                }
+
+                // Sanity Hint
+                if (!gameState.tutorial.sanityShown && gameState.sanity < 70) {
+                    showTutorial("Sanity dropping! Find coffee or take a break!");
+                    gameState.tutorial.sanityShown = true;
+                }
+
+                // Update Message Timer
+                if (gameState.tutorialMessage.timer > 0) {
+                    gameState.tutorialMessage.timer -= dt;
+                    if (gameState.tutorialMessage.timer < 1000) {
+                        gameState.tutorialMessage.alpha = gameState.tutorialMessage.timer / 1000;
+                    } else {
+                        gameState.tutorialMessage.alpha = 1;
+                    }
+                } else {
+                    gameState.tutorialMessage.alpha = 0;
+                }
+            }
+
             updateHUD(); // FIXED: Moved from draw() to update()
         }
 
+        function drawNightShiftOverlay() {
+            if (!gameState.nightShift) return;
+
+            // Darken the entire screen
+            ctx.save();
+            ctx.fillStyle = 'rgba(0, 0, 20, 0.3)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Vignette effect
+            const gradient = ctx.createRadialGradient(
+                canvas.width / 2, canvas.height / 2, canvas.height * 0.3,
+                canvas.width / 2, canvas.height / 2, canvas.height * 0.8
+            );
+            gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+            gradient.addColorStop(1, 'rgba(0, 0, 30, 0.5)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Flicker effect (random light fluctuation)
+            if (gameState.flickerIntensity > 0) {
+                ctx.fillStyle = `rgba(255, 255, 200, ${gameState.flickerIntensity * 0.1})`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            ctx.restore();
+        }
+
         function draw() {
+            if (gameState.mode === 'REPORTOFF') {
+                drawReportOff();
+                return;
+            }
+
+            if (gameState.mode === 'SUMMARY') {
+                drawSummaryScreen();
+                return;
+            }
             if (gameState.mode === 'MUG') {
                 drawMugScreen();
                 return;
             }
-
-            ctx.fillStyle = '#2d3748'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.strokeStyle = '#3a4659'; ctx.lineWidth = 2; ctx.beginPath();
+            ctx.fillStyle = gameState.nightShift ? '#1a1a2e' : '#2d3748';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = gameState.nightShift ? '#2a2a4a' : '#3a4659';
+            ctx.lineWidth = 2; ctx.beginPath();
             for (let x = 0; x < canvas.width; x += 40) { ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); }
             for (let y = 0; y < canvas.height; y += 40) { ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); }
             ctx.stroke();
@@ -1632,6 +1968,9 @@
 
             ctx.font = 'bold 20px Arial';
             particles.forEach(p => { ctx.fillStyle = p.color; ctx.fillText(p.text, p.x, p.y); });
+
+            drawNightShiftOverlay();
+            drawTutorialOverlay();
 
             if (gameState.paused) {
                 ctx.save();
@@ -1729,6 +2068,37 @@
             }
         }
 
+        function drawSummaryScreen() {
+            ctx.fillStyle = '#2d3748';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = 'white';
+            ctx.font = '60px "Vt323"';
+            ctx.textAlign = 'center';
+            ctx.fillText("SHIFT SUMMARY", canvas.width / 2, 100);
+
+            ctx.font = '30px "Vt323"';
+            ctx.textAlign = 'left';
+            const startX = canvas.width / 2 - 150;
+            let y = 200;
+
+            ctx.fillText(`Babies Fed: ${gameState.stats.babiesFed}`, startX, y); y += 50;
+            ctx.fillText(`Diapers Changed: ${gameState.stats.diapersChanged}`, startX, y); y += 50;
+            ctx.fillText(`Families Calmed: ${gameState.stats.familiesCalmed}`, startX, y); y += 50;
+            ctx.fillText(`Alarms Silenced: ${gameState.stats.alarmsSilenced}`, startX, y); y += 50;
+            ctx.fillText(`Coffee Consumed: ${gameState.stats.coffeeConsumed}`, startX, y); y += 50;
+
+            ctx.textAlign = 'center';
+            ctx.fillText(`Total Score: ${gameState.score}`, canvas.width / 2, y + 50);
+
+            // Draw "Next" Button
+            ctx.fillStyle = '#4299e1';
+            ctx.fillRect(canvas.width / 2 - 100, canvas.height - 150, 200, 60);
+            ctx.fillStyle = 'white';
+            ctx.font = '40px "Vt323"';
+            ctx.fillText("NEXT >", canvas.width / 2, canvas.height - 110);
+        }
+
         function drawSticker(s) {
             ctx.save();
             ctx.translate(s.x, s.y);
@@ -1749,6 +2119,76 @@
             ctx.fillText(s.text, 0, 0);
 
             ctx.restore();
+        }
+
+        function drawTutorialOverlay() {
+            if (gameState.tutorialMessage.alpha <= 0) return;
+
+            ctx.save();
+            ctx.globalAlpha = gameState.tutorialMessage.alpha;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.roundRect(canvas.width / 2 - 300, 100, 600, 60, 10);
+            ctx.fill();
+
+            ctx.fillStyle = '#fff';
+            ctx.font = '30px "Vt323"';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(gameState.tutorialMessage.text, canvas.width / 2, 130);
+            ctx.restore();
+        }
+
+        function showTutorial(text) {
+            gameState.tutorialMessage.text = text;
+            gameState.tutorialMessage.timer = 5000; // Show for 5 seconds
+            gameState.tutorialMessage.alpha = 1;
+        }
+
+        function drawReportOff() {
+            // Draw background (dimmed game)
+            ctx.fillStyle = '#2d3748';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw floor lines
+            ctx.strokeStyle = '#3a4659';
+            ctx.lineWidth = 2; ctx.beginPath();
+            for (let x = 0; x < canvas.width; x += 40) { ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); }
+            for (let y = 0; y < canvas.height; y += 40) { ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); }
+            ctx.stroke();
+
+            // Draw Player Nurse (Idle)
+            drawSprite(ctx, 'nurse', nurse.pos.x, nurse.pos.y);
+
+            // Draw Incoming Nurse
+            drawSprite(ctx, 'nurse', gameState.incomingNursePos.x, gameState.incomingNursePos.y);
+
+            // Dialogue
+            ctx.font = '24px "Vt323"';
+            ctx.textAlign = 'center';
+
+            if (gameState.cutsceneTimer > 2000 && gameState.cutsceneTimer < 4000) {
+                // Incoming Nurse speaks
+                ctx.fillStyle = 'white';
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(gameState.incomingNursePos.x - 60, gameState.incomingNursePos.y - 100, 120, 60, 5);
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = 'black';
+                ctx.fillText("I'm here!", gameState.incomingNursePos.x, gameState.incomingNursePos.y - 60);
+            } else if (gameState.cutsceneTimer > 4000 && gameState.cutsceneTimer < 6000) {
+                // Player Nurse speaks
+                ctx.fillStyle = 'white';
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(nurse.pos.x - 60, nurse.pos.y - 100, 120, 60, 5);
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = 'black';
+                ctx.fillText("All yours.", nurse.pos.x, nurse.pos.y - 60);
+            }
         }
 
         function updateHUD() {
@@ -1786,12 +2226,29 @@
         }
 
         function endGame(victory) {
-            gameState.mode = 'MUG';
+            if (!victory) {
+                // Game Over (Sanity 0) - Skip report off, go straight to summary (or maybe game over screen?)
+                // For now, let's just go to summary but maybe with a different message?
+                // Actually, let's keep it simple and just do report off for victory (shift complete)
+                // But if sanity is 0, maybe we should just show summary with "Shift Failed"?
+                // The original code went to MUG.
+                // Let's do Report Off only if victory (Time ran out).
+                // If sanity 0, maybe skip to summary.
+            }
+
+            gameState.mode = 'REPORTOFF';
+            gameState.cutsceneTimer = 0;
+            gameState.incomingNursePos = { x: canvas.width + 50, y: canvas.height / 2 };
+
             gameUiTop.style.display = 'none';
             logPanel.style.display = 'none';
             messageBox.style.opacity = 0;
-            restartBtn.style.display = 'none'; // Hide initially
+            restartBtn.style.display = 'none';
 
+            // Set tutorial as seen after first game ends
+            settings.tutorialSeen = true;
+
+            // Prepare stickers for Mug screen (logic remains same)
             const stickerPhrases = [
                 // Original phrases
                 "Tiny Dictator", "NPO means NO", "Coffee IV", "Chart This",
@@ -1882,6 +2339,18 @@
                 return;
             }
 
+            if (gameState.mode === 'SUMMARY') {
+                // Check click on Next button
+                if (pos.x > canvas.width / 2 - 100 && pos.x < canvas.width / 2 + 100 &&
+                    pos.y > canvas.height - 150 && pos.y < canvas.height - 90) {
+                    gameState.mode = 'MUG';
+                    playBeep(600, 100);
+                }
+                return;
+            }
+
+            if (gameState.mode === 'REPORTOFF') return;
+
             if (!gameState.running || gameState.paused) return;
 
             particles.push({ x: pos.x, y: pos.y, text: '.', color: '#fff', life: 10 });
@@ -1936,6 +2405,30 @@
                 handlePointerDown(e.touches[0]);
             }
         }, { passive: false });
+
+        window.addEventListener('keydown', (e) => {
+            const key = e.key.toLowerCase();
+            if (key === 'w' || key === 'arrowup') keys.w = true;
+            if (key === 'a' || key === 'arrowleft') keys.a = true;
+            if (key === 's' || key === 'arrowdown') keys.s = true;
+            if (key === 'd' || key === 'arrowright') keys.d = true;
+            if (key === 'arrowup') keys.up = true;
+            if (key === 'arrowdown') keys.down = true;
+            if (key === 'arrowleft') keys.left = true;
+            if (key === 'arrowright') keys.right = true;
+        });
+
+        window.addEventListener('keyup', (e) => {
+            const key = e.key.toLowerCase();
+            if (key === 'w' || key === 'arrowup') keys.w = false;
+            if (key === 'a' || key === 'arrowleft') keys.a = false;
+            if (key === 's' || key === 'arrowdown') keys.s = false;
+            if (key === 'd' || key === 'arrowright') keys.d = false;
+            if (key === 'arrowup') keys.up = false;
+            if (key === 'arrowdown') keys.down = false;
+            if (key === 'arrowleft') keys.left = false;
+            if (key === 'arrowright') keys.right = false;
+        });
 
         resizeCanvas();
     </script>
