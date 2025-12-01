@@ -24,11 +24,11 @@ Survive 7am to 7pm. Collect stickers for your big dumb mug. Try not to lose your
 
 ## How To Play
 
-**WASD or Arrow Keys:** Move (oh wait, we didn't add that yet. Click to move like it's 1997.)
+**WASD or Arrow Keys:** Move your nurse around. Much easier than clicking.
 
-**Click/Tap:** Move your nurse around. She'll walk there. Eventually. When she's done with her current crisis.
+**Click/Tap:** Move your nurse to a specific spot. She'll walk there. Eventually. When she's done with her current crisis.
 
-**Mouse/Touch:** In mug mode, drag stickers onto your mug because this is what passes for "recognition" in healthcare.
+**Auto Nurse Mode:** Toggle this on in Settings or via the HUD button to let the nurse prioritize tasks automatically. Perfect for when you need a break.
 
 ### The Good Stuff (Things That Keep You Alive)
 
@@ -87,7 +87,11 @@ Ignore them at your peril. They WILL let you know they're unhappy. So will your 
 
 ## The Mug Screen (AKA Your "Reward")
 
-Survive the shift and you'll earn stickers based on your score. Drag them onto your emotional support Stanley cup.
+Survive the shift and you'll earn stickers based on your score. They are automatically applied to your emotional support Stanley cup because you're too tired to drag them yourself.
+
+## Character Roster
+
+Check out the **Character Roster** in the Settings menu to see pixel art of all the people (and objects) making your life difficult, complete with personality stats and quotes.
 
 Sticker options include 30+ phrases like:
 - "NPO means NO" - For when someone asks you for the 8th time

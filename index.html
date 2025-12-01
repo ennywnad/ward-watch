@@ -117,7 +117,7 @@
             right: 10px;
             top: 90px;
             bottom: 10px;
-            width: 320px;
+            width: 450px;
             background: rgba(0, 0, 0, 0.2);
             border: 2px solid rgba(113, 128, 150, 0.5);
             border-radius: 4px;
@@ -148,18 +148,18 @@
 
         .log-time {
             color: #a0aec0;
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             margin-right: 4px;
         }
 
         .log-speaker {
             font-weight: bold;
             margin-right: 4px;
-            font-size: 1.1rem;
+            font-size: 0.95rem;
         }
 
         .log-msg {
-            font-size: 1.1rem;
+            font-size: 0.95rem;
             color: #e2e8f0;
         }
 
@@ -252,6 +252,67 @@
         #settings-overlay input[type="range"] {
             cursor: pointer;
         }
+
+        #auto-nurse-toggle {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(45, 55, 72, 0.9);
+            border: 2px solid #718096;
+            color: #a0aec0;
+            padding: 4px 10px;
+            font-family: 'Vt323', monospace;
+            font-size: 14px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+            z-index: 100;
+            pointer-events: auto;
+        }
+
+        #auto-nurse-toggle.active {
+            background: rgba(72, 187, 120, 0.3);
+            border-color: #48bb78;
+            color: #48bb78;
+        }
+
+        #auto-nurse-toggle:hover {
+            border-color: #fff;
+        }
+
+        #character-roster-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            pointer-events: auto;
+        }
+
+        #character-roster-overlay .roster-content {
+            background: #2d3748;
+            padding: 40px;
+            border-radius: 8px;
+            border: 4px solid #4a5568;
+            max-width: 600px;
+            width: 90%;
+            text-align: center;
+        }
+
+        #character-sprite-display {
+            margin: 20px auto;
+            width: 200px;
+            height: 200px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
     </style>
 </head>
 
@@ -278,6 +339,8 @@
                     </div>
                 </div>
             </div>
+
+            <button id="auto-nurse-toggle" onclick="toggleAutoNurse()">AUTO</button>
 
             <div id="log-panel">
                 <div class="log-entry"><span class="log-time">07:00</span> <span class="log-msg text-gray-400">Shift
@@ -314,7 +377,7 @@
                         </ul>
                     </div>
                 </div>
-                <p class="text-md italic mb-4 text-gray-400">"Earn stickers for your big dumb mug!"</p>
+                <p class="text-md italic mb-4 text-gray-400">"Earn stickers for your mug!"</p>
                 <button class="btn" onclick="startGame()">CLOCK IN</button>
                 <button class="btn" onclick="openSettings()" style="margin-top: 0.5rem; background: #718096;">
                     ⚙ SETTINGS
@@ -334,17 +397,18 @@
                     </div>
 
                     <div class="flex justify-between items-center">
-                        <label>Night Shift Mode</label>
-                        <button id="night-toggle" class="btn text-sm py-1" onclick="toggleNightShift()">
-                            OFF
-                        </button>
+                        <label for="setting-night-shift">Night Shift Mode</label>
+                        <input type="checkbox" id="setting-night-shift" onchange="toggleNightShift()">
                     </div>
 
                     <div class="flex justify-between items-center">
-                        <label>Short Staffed Mode</label>
-                        <button id="staff-toggle" class="btn text-sm py-1" onclick="toggleShortStaffed()">
-                            OFF
-                        </button>
+                        <label for="setting-short-staffed">Short Staffed Mode</label>
+                        <input type="checkbox" id="setting-short-staffed" onchange="toggleShortStaffed()">
+                    </div>
+
+                    <div class="flex justify-between items-center">
+                        <label for="setting-auto-nurse">Auto Nurse Mode</label>
+                        <input type="checkbox" id="setting-auto-nurse" onchange="toggleAutoNurse()">
                     </div>
 
                     <div class="flex justify-between items-center">
@@ -353,9 +417,40 @@
                             RESET
                         </button>
                     </div>
+
+                    <div class="flex justify-between items-center">
+                        <button class="btn" onclick="openCharacterRoster()" style="width: 100%; margin-top: 1rem;">
+                            📋 CHARACTER ROSTER
+                        </button>
+                    </div>
                 </div>
 
                 <button class="btn mt-6" onclick="closeSettings()">DONE</button>
+            </div>
+        </div>
+
+        <div id="character-roster-overlay">
+            <div class="roster-content">
+                <h2 class="text-3xl mb-4 text-blue-300" style="font-family: 'Vt323', monospace;">CHARACTER ROSTER</h2>
+
+                <div id="character-sprite-display"></div>
+
+                <h3 class="text-2xl text-white mb-2" id="character-name" style="font-family: 'Vt323', monospace;"></h3>
+                <p class="text-lg text-gray-300 mb-2" id="character-role" style="font-family: 'Vt323', monospace;"></p>
+                <p class="text-md text-pink-300 italic mb-4" id="character-quote"
+                    style="font-family: 'Vt323', monospace;"></p>
+
+                <div class="text-left text-white mb-4" id="character-stats"
+                    style="font-family: 'Vt323', monospace; font-size: 18px;"></div>
+
+                <div class="flex justify-between mb-4">
+                    <button class="btn" onclick="prevCharacter()">← PREV</button>
+                    <span class="text-white" id="character-counter"
+                        style="font-family: 'Vt323', monospace; font-size: 20px; align-self: center;">1 / 9</span>
+                    <button class="btn" onclick="nextCharacter()">NEXT →</button>
+                </div>
+
+                <button class="btn" onclick="closeCharacterRoster()">EXIT</button>
             </div>
         </div>
     </div>
@@ -377,7 +472,7 @@
 
         const SHIFT_START = 7 * 60;
         const SHIFT_END = 19 * 60;
-        const GAME_DURATION_SECONDS = 140;
+        const GAME_DURATION_SECONDS = 300; // 5 Minutes
         const MS_PER_GAME_MINUTE = (GAME_DURATION_SECONDS * 1000) / (12 * 60);
 
         // Audio context for sound effects
@@ -407,11 +502,12 @@
 
 
 
-        const settings = {
+        let settings = {
             volume: 0.5,
             nightShift: false,
             shortStaffed: false,
-            tutorialSeen: false
+            tutorialSeen: false,
+            autoNurse: false
         };
 
         // Load from localStorage on page load
@@ -422,11 +518,26 @@
                 gameState.nightShift = settings.nightShift;
                 gameState.shortStaffed = settings.shortStaffed;
             }
-            updateSettingsUI();
+            // Update UI elements based on loaded settings
+            const volSlider = document.getElementById('volume-slider');
+            if (volSlider) volSlider.value = settings.volume * 100;
+
+            const nightCheckbox = document.getElementById('setting-night-shift');
+            if (nightCheckbox) nightCheckbox.checked = settings.nightShift;
+
+            const staffCheckbox = document.getElementById('setting-short-staffed');
+            if (staffCheckbox) staffCheckbox.checked = settings.shortStaffed;
+
+            const autoNurseCheckbox = document.getElementById('setting-auto-nurse');
+            if (autoNurseCheckbox) autoNurseCheckbox.checked = settings.autoNurse;
+
+            updateAutoToggleButton();
+            updateSettingsUI(); // Call this to ensure other UI elements are updated
         }
 
         function saveSettings() {
             localStorage.setItem('nicuSettings', JSON.stringify(settings));
+            updateAutoToggleButton();
         }
 
         function openSettings() {
@@ -443,17 +554,14 @@
             const volSlider = document.getElementById('volume-slider');
             if (volSlider) volSlider.value = settings.volume * 100;
 
-            const nightBtn = document.getElementById('night-toggle');
-            if (nightBtn) {
-                nightBtn.innerText = settings.nightShift ? 'ON' : 'OFF';
-                nightBtn.style.background = settings.nightShift ? '#48bb78' : '#e53e3e';
-            }
+            const nightCheckbox = document.getElementById('setting-night-shift');
+            if (nightCheckbox) nightCheckbox.checked = settings.nightShift;
 
-            const staffBtn = document.getElementById('staff-toggle');
-            if (staffBtn) {
-                staffBtn.innerText = settings.shortStaffed ? 'ON' : 'OFF';
-                staffBtn.style.background = settings.shortStaffed ? '#48bb78' : '#e53e3e';
-            }
+            const staffCheckbox = document.getElementById('setting-short-staffed');
+            if (staffCheckbox) staffCheckbox.checked = settings.shortStaffed;
+
+            const autoNurseCheckbox = document.getElementById('setting-auto-nurse');
+            if (autoNurseCheckbox) autoNurseCheckbox.checked = settings.autoNurse;
         }
 
         function updateVolume(val) {
@@ -464,12 +572,14 @@
             settings.nightShift = !settings.nightShift;
             gameState.nightShift = settings.nightShift;
             updateSettingsUI();
+            saveSettings();
         }
 
         function toggleShortStaffed() {
             settings.shortStaffed = !settings.shortStaffed;
             gameState.shortStaffed = settings.shortStaffed;
             updateSettingsUI();
+            saveSettings();
         }
 
         function resetTutorial() {
@@ -478,6 +588,95 @@
             alert('Tutorial will show on next shift!');
         }
 
+        function toggleAutoNurse() {
+            settings.autoNurse = !settings.autoNurse;
+            saveSettings();
+            updateAutoToggleButton();
+        }
+
+        function updateAutoToggleButton() {
+            const btn = document.getElementById('auto-nurse-toggle');
+            if (btn) {
+                if (settings.autoNurse) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            }
+        }
+
+        // Character Roster Data
+        const characters = [
+            { name: "NICU Nurse", role: "The Hero", sprite: "nurse", quote: "I need a break.", stats: ["Coffee Dependency: CRITICAL", "Sanity Management: Expert", "Multi-tasking: God Tier", "Patience Level: Variable"] },
+            { name: "Surgeon", role: "The Specialist", sprite: "surgeon", quote: "I don't know why they don't listen to ME.", stats: ["Ego Size: Massive", "Bedside Manner: Non-existent", "Orders: Contradictory", "Availability: Sporadic"] },
+            { name: "Resident", role: "The Clueless", sprite: "resident", quote: "Uh... where are you going?", stats: ["Knowledge: Theoretical Only", "Sleep Deprivation: 100%", "Questions Asked: Too Many", "Help Provided: Minimal"] },
+            { name: "Mom", role: "The Worried Parent", sprite: "mom", quote: "Is that machine beeping normal?!", stats: ["Anxiety Level: High", "Questions: Endless", "Google MD: Certified", "Love: Infinite"] },
+            { name: "Dad", role: "The Partner", sprite: "dad_bottle", quote: "My wife has a question...", stats: ["Support Role: Active", "Medical Knowledge: Learning", "Snack Runs: Frequent", "Stress Level: Rising"] },
+            { name: "Coffee", role: "The Lifesaver", sprite: "coffee", quote: "[Steam noises]", stats: ["Speed Boost: +80%", "Sanity Restored: +5", "Temperature: Lava", "Required: Always"] },
+            { name: "Pizza", role: "The Cold Comfort", sprite: "pizza", quote: "Still edible!", stats: ["Temperature: Room", "Quality: Questionable", "Sanity Boost: +20", "Source: Break Room"] },
+            { name: "Bathroom Break", role: "The Necessity", sprite: null, quote: "Finally!", stats: ["Relief: Maximum", "Sanity Boost: Full", "Duration: Too Short", "Frequency: Never Enough"] },
+            { name: "Hand Sanitizer", role: "The Essential", sprite: null, quote: "*squirt*", stats: ["Alcohol Content: 70%", "Skin Dryness: +50", "Germ Kill: 99.9%", "Use Rate: Constant"] },
+            { name: "Floor Cleaner", role: "The Hazard", sprite: "floorcleaner", quote: "Wet Floor!", stats: ["Slip Risk: HIGH", "Timing: Always Terrible", "Coverage: Entire Hallway", "Warning Signs: Ignored"] },
+            { name: "Admin Gift", role: "The Wellness Trap", sprite: "admingift", quote: "Heroes Work Here!", stats: ["Actual Value: $0.02", "Sanity Cost: -10", "Message: We 'Appreciate' You", "Usefulness: Zero"] },
+            { name: "Baby", role: "The Patient", sprite: null, quote: "*cries in NICU*", stats: ["Size: Tiny", "Needs: Constant", "Cuteness: Maximum", "Worth It: 100%"] }
+        ];
+
+        let currentCharacterIndex = 0;
+
+        function openCharacterRoster() {
+            document.getElementById('settings-overlay').style.display = 'none';
+            document.getElementById('character-roster-overlay').style.display = 'flex';
+            currentCharacterIndex = 0;
+            displayCharacter(currentCharacterIndex);
+        }
+
+        function closeCharacterRoster() {
+            document.getElementById('character-roster-overlay').style.display = 'none';
+            document.getElementById('settings-overlay').style.display = 'flex';
+        }
+
+        function nextCharacter() {
+            currentCharacterIndex = (currentCharacterIndex + 1) % characters.length;
+            displayCharacter(currentCharacterIndex);
+        }
+
+        function prevCharacter() {
+            currentCharacterIndex = (currentCharacterIndex - 1 + characters.length) % characters.length;
+            displayCharacter(currentCharacterIndex);
+        }
+
+        function displayCharacter(index) {
+            const char = characters[index];
+            document.getElementById('character-name').textContent = char.name;
+            document.getElementById('character-role').textContent = char.role;
+            document.getElementById('character-quote').textContent = `"${char.quote}"`;
+            document.getElementById('character-counter').textContent = `${index + 1} / ${characters.length}`;
+            const statsDiv = document.getElementById('character-stats');
+            statsDiv.innerHTML = char.stats.map(stat => `<div>• ${stat}</div>`).join('');
+            const spriteDiv = document.getElementById('character-sprite-display');
+            spriteDiv.innerHTML = '';
+            if (char.sprite) {
+                const spriteCanvas = document.createElement('canvas');
+                spriteCanvas.width = 200;
+                spriteCanvas.height = 200;
+                const spriteCtx = spriteCanvas.getContext('2d');
+                // Fill with dark background
+                spriteCtx.fillStyle = '#2d3748';
+                spriteCtx.fillRect(0, 0, 200, 200);
+                drawSprite(spriteCtx, char.sprite, 100, 100, 20);
+                spriteDiv.appendChild(spriteCanvas);
+            } else {
+                const emoji = document.createElement('div');
+                emoji.style.fontSize = '80px';
+                if (char.name === 'Pizza') emoji.textContent = '🍕';
+                else if (char.name === 'Bathroom Break') emoji.textContent = '🧻';
+                else if (char.name === 'Hand Sanitizer') emoji.textContent = '🧴';
+                else if (char.name === 'Floor Cleaner') emoji.textContent = '🧹';
+                else if (char.name === 'Admin Gift') emoji.textContent = '🎁';
+                else if (char.name === 'Baby') emoji.textContent = '👶';
+                spriteDiv.appendChild(emoji);
+            }
+        }
         let gameState = {
             mode: 'MENU',
             running: false,
@@ -546,6 +745,9 @@
             K: '#000000',
             C: '#0bc5ea',
             N: '#ccff00',
+            T: '#d69e2e', // Tan (Dad)
+            M: '#742a2a', // Maroon (Floor Cleaner)
+            J: '#63b3ed', // Johnny/Gown (Visitor)
         };
 
         const SPRITES = {
@@ -574,15 +776,16 @@
                 "__NW______"
             ],
             resident: [
-                "___HHHH___",
-                "___SSSS___",
-                "___SSSS___",
-                "__WWWWWW__",
-                "__WWLWWW__",
-                "_WWWDDWWW_",
-                "_WWWWWWWW_",
-                "__LL__LL__",
-                "__LL__LL__"
+                "___HHHH___", // Hair
+                "___SSSS___", // Forehead
+                "___SKS____", // Eyes
+                "___WWW____", // Mask
+                "__WWWWWW__", // Shoulders
+                "__C_W_C___", // Steth tubes
+                "_WC_W_CW__", // Steth tubes
+                "_WWCCCWW__", // Steth U/Bell
+                "__WW__WW__", // Legs
+                "__WW__WW__"  // Legs
             ],
             surgeon: [
                 "___GGGG___",
@@ -617,6 +820,48 @@
                 "_DDDDDDDD_",
                 "__LL__LL__",
                 "__LL__LL__"
+            ],
+            dad_bottle: [
+                "__HHHHHH__",
+                "___SSSS___",
+                "___SSSS___",
+                "__TTTTTT__",
+                "__TTTWTT__",
+                "_TTTTTTTT_",
+                "_TWWWWTTT_",
+                "__LL__LL__",
+                "__LL__LL__"
+            ],
+            dad_beer: [
+                "__HHHHHH__",
+                "___SSSS___",
+                "__OOOSOO__",
+                "__TTTTTT__",
+                "__TTTOTT__",
+                "_TTTTTTTT_",
+                "_TYYYYYTT_",
+                "__LL__LL__",
+                "__LL__LL__"
+            ],
+            pizza: [
+                "__________",
+                "__YYYYY___",
+                "_YRRRRRY__",
+                "_YRRWRRY__",
+                "_YRRRWRY__",
+                "_YRRRRRY__",
+                "__YYYYY___",
+                "__________"
+            ],
+            admingift: [
+                "__________",
+                "___RRR____",
+                "___RRR____",
+                "__PPPPPP__",
+                "__PPPPPP__",
+                "__PPPPPP__",
+                "__PPPPPP__",
+                "__________"
             ],
             baby: [
                 "__________",
@@ -672,14 +917,14 @@
         // New Sprites for Sprint 1
         Object.assign(SPRITES, {
             floorcleaner: [
-                "___MMMM___",
-                "__MMMMMM__",
-                "__M_WW_M__",
-                "__MMMMMM__",
-                "_MMMMMMMM_",
-                "_MMMMMMMM_",
-                "__BB__BB__",
-                "__BB__BB__"
+                "__________",
+                "__KKKKKK__",
+                "_KMMMMMK__",
+                "_KMMMMMK__",
+                "_KMMMMMK__",
+                "_KMMMMMK__",
+                "__KKKKKK__",
+                "___BB_BB__"
             ],
             medicalfamily: [
                 "___HHHH___",
@@ -733,6 +978,24 @@
             ]
         };
 
+        const failurePhrases = [
+            "I Need a Break",
+            "Burnt Out",
+            "Can't Even",
+            "Done For Today",
+            "Need Backup",
+            "Mentally Checked Out",
+            "Sanity Break Required",
+            "I'm Out",
+            "Shift Survived... Barely",
+            "Emotionally Drained",
+            "That's Enough",
+            "Tapping Out",
+            "Brain.exe Stopped",
+            "System Overload",
+            "Off The Clock"
+        ];
+
         function drawSprite(ctx, spriteKey, x, y, scale = PIXEL_SCALE) {
             const data = SPRITES[spriteKey];
             if (!data) return;
@@ -773,7 +1036,7 @@
 
             if (speakerType === 'resident') { speakerName = "Res"; speakerClass = "sp-resident"; }
             else if (speakerType === 'mom') { speakerName = "Mom"; speakerClass = "sp-mom"; }
-            else if (speakerType === 'dad') { speakerName = "Dad"; speakerClass = "sp-dad"; }
+            else if (speakerType === 'dad' || speakerType === 'dad_bottle' || speakerType === 'dad_beer') { speakerName = "Dad"; speakerClass = "sp-dad"; }
             else if (speakerType === 'surgeon') { speakerName = "Surg"; speakerClass = "sp-surgeon"; }
             else if (speakerType === 'nurse') { speakerName = "You"; speakerClass = "sp-nurse"; }
             else if (speakerType === 'admin') { speakerName = "Admin"; speakerClass = "sp-admin"; }
@@ -1127,7 +1390,7 @@
                 let quotes = [];
                 if (this.type === 'resident') quotes = ["Is this kid NPO?", "Vein finder?", "Ordering full workup."];
                 if (this.type === 'mom') quotes = ["Why is he crying?", "Is that machine beeping?", "I read online..."];
-                if (this.type === 'dad') quotes = ["I'm scared.", "Where's the coffee?", "Can I go home?"];
+                if (this.type === 'dad' || this.type === 'dad_bottle' || this.type === 'dad_beer') quotes = ["I'm scared.", "Where's the coffee?", "Can I go home?"];
                 if (this.type === 'surgeon') quotes = ["NPO. Now.", "Call the Fellow.", "My way or highway."];
 
                 // New Enemy Quotes
@@ -1428,6 +1691,7 @@
             gameState.stickerDelay = 0;
             gameState.displayedScore = 0;
             gameState.mugFillHeight = 0;
+            gameState.lastTime = 0; // Reset timing for smooth restart
             // Reset Stats
             gameState.stats = {
                 babiesFed: 0,
@@ -1507,7 +1771,7 @@
             else if (typeRoll < 0.75) type = 'medicalfamily';
             else if (typeRoll < 0.85) type = 'sickvisitor';
             else if (Math.random() > 0.5) type = 'mom';
-            else type = 'dad';
+            else type = Math.random() > 0.5 ? 'dad_bottle' : 'dad_beer';
 
             if (type === 'floorcleaner') {
                 // Spawns at left, goes right
@@ -1567,7 +1831,7 @@
 
                 // End cutscene after 6 seconds
                 if (gameState.cutsceneTimer > 6000) {
-                    gameState.mode = 'SUMMARY';
+                    gameState.mode = 'MUG';
                 }
                 return;
             }
@@ -1582,6 +1846,7 @@
                         const mugH = 500; // Taller cup
                         const mugW = 240; // Top width
                         const mugBaseW = 180; // Bottom width
+                        const mugX = canvas.width * 0.58; // Center-right position
                         const mugBottomY = canvas.height / 2 + mugH / 2;
 
                         // Calculate available width at current height
@@ -1595,7 +1860,7 @@
                         // Clamp offset to ensure it stays inside
                         const randomOffset = (Math.random() * maxOffset * 2) - maxOffset;
 
-                        s.x = (canvas.width / 2) + randomOffset;
+                        s.x = mugX + randomOffset;
                         s.y = currentY;
                         s.angle = (Math.random() * 0.1) - 0.05; // Very slight tilt for "lined up" look
 
@@ -1691,7 +1956,7 @@
                     else if (item.type === 'sanitizer') {
                         playSoundVisual(item.pos.x, item.pos.y, "SHIELD!");
                         gameState.sanity = Math.min(100, gameState.sanity + 15);
-                        addLogEntry('nurse', "Clean hands, clear mind.");
+                        // addLogEntry('nurse', "Clean hands, clear mind.");
                         nurse.shieldTimer = 3000; // 3 seconds
                         playBeep(600, 150);
                     }
@@ -1704,7 +1969,7 @@
                             needyIso.needs.shift();
                             addLogEntry('nurse', "Pump fixed a problem!");
                         } else {
-                            addLogEntry('nurse', "Equipment actually works!");
+                            // addLogEntry('nurse', "Equipment actually works!");
                         }
                         playBeep(700, 150);
                     }
@@ -1749,7 +2014,7 @@
                 if (chartingStation.timer < chartingStation.maxTimer) {
                     chartingStation.timer = Math.min(chartingStation.maxTimer, chartingStation.timer + dt * 2); // Recharge
                     if (chartingStation.timer >= chartingStation.maxTimer) {
-                        addLogEntry('nurse', "Documentation complete.");
+                        // addLogEntry('nurse', "Documentation complete.");
                         playSoundVisual(chartingStation.pos.x, chartingStation.pos.y, "SAVED!");
                     }
                 }
@@ -1760,7 +2025,7 @@
             if (supplyCart && nurse.pos.dist(supplyCart.pos) < 60) {
                 // Just a visual interaction for now, maybe add supply count later
                 if (Math.random() < 0.01) {
-                    addLogEntry('nurse', "Restocked supplies.");
+                    // addLogEntry('nurse', "Restocked supplies.");
                 }
             }
 
@@ -1770,7 +2035,7 @@
                 // Click to clear (simulated by proximity for now, or add click handler later)
                 // For now, let's just auto-clear if close enough for 1 second? 
                 // No, let's make it instant for better flow
-                addLogEntry('nurse', "Message acknowledged.");
+                // addLogEntry('nurse', "Message acknowledged.");
                 pager.message = null;
                 playSoundVisual(pager.pos.x, pager.pos.y, "CLEARED");
             }
@@ -1833,7 +2098,7 @@
             }
 
             if (nurse.state === 'idle' && nurse.pos.dist(chair.pos) < 40 + chair.size) {
-                nurse.state = 'sitting'; nurse.pos.x = chair.pos.x; nurse.pos.y = chair.pos.y; addLogEntry('nurse', "Sitting down...");
+                nurse.state = 'sitting'; nurse.pos.x = chair.pos.x; nurse.pos.y = chair.pos.y; // addLogEntry('nurse', "Sitting down...");
             }
 
             if (nurse.state !== 'sitting') {
@@ -1911,7 +2176,70 @@
                 }
             }
 
+            // Auto Nurse Mode
+            if (settings.autoNurse && nurse.state === 'idle' && !gameState.paused) {
+                const target = findNextAutoTarget();
+                if (target) {
+                    nurse.target = target.pos;
+                    nurse.state = 'moving';
+                }
+            }
+
             updateHUD(); // FIXED: Moved from draw() to update()
+        }
+
+        function findNextAutoTarget() {
+            // Priority 1: Babies with needs (feed > diaper > calm > others)
+            const needyIsolettes = isolettes.filter(iso => iso.needs.length > 0);
+            if (needyIsolettes.length > 0) {
+                // Prioritize feed > diaper > calm
+                const priority = ['feed', 'diaper', 'calm', 'assessment', 'hold', 'procedure', 'photo'];
+                let bestIso = needyIsolettes[0];
+                let bestPriority = priority.indexOf(bestIso.needs[0]);
+
+                for (const iso of needyIsolettes) {
+                    const p = priority.indexOf(iso.needs[0]);
+                    if (p !== -1 && (bestPriority === -1 || p < bestPriority)) {
+                        bestIso = iso;
+                        bestPriority = p;
+                    }
+                }
+                return { pos: new Vector(bestIso.pos.x, bestIso.pos.y + 30), type: 'baby' };
+            }
+
+            // Priority 2: Good items (coffee, pizza, etc.)
+            const goodItems = entities.filter(e =>
+                ['coffee', 'pizza', 'bathroom', 'sanitizer', 'workingpump', 'coworker'].includes(e.type)
+            );
+            if (goodItems.length > 0) {
+                // Find closest good item
+                let closest = goodItems[0];
+                let closestDist = nurse.pos.dist(closest.pos);
+                for (const item of goodItems) {
+                    const d = nurse.pos.dist(item.pos);
+                    if (d < closestDist) {
+                        closest = item;
+                        closestDist = d;
+                    }
+                }
+                return { pos: new Vector(closest.pos.x, closest.pos.y), type: 'item' };
+            }
+
+            // Priority 3: Enemies (if annoying)
+            const enemies = entities.filter(e =>
+                ['resident', 'mom', 'dad', 'surgeon', 'medicalfamily'].includes(e.type) &&
+                e.active && e.state === 'annoying'
+            );
+            if (enemies.length > 0) {
+                return { pos: new Vector(enemies[0].pos.x, enemies[0].pos.y), type: 'enemy' };
+            }
+
+            // Priority 4: Chair (idle)
+            if (chair) {
+                return { pos: new Vector(chair.pos.x, chair.pos.y), type: 'chair' };
+            }
+
+            return null;
         }
 
         function drawNightShiftOverlay() {
@@ -1947,10 +2275,11 @@
                 return;
             }
 
-            if (gameState.mode === 'SUMMARY') {
-                drawSummaryScreen();
+            if (gameState.mode === 'REPORTOFF') {
+                drawReportOff();
                 return;
             }
+
             if (gameState.mode === 'MUG') {
                 drawMugScreen();
                 return;
@@ -1985,10 +2314,42 @@
         }
 
         function drawMugScreen() {
-            ctx.fillStyle = '#1a202c';
+            ctx.fillStyle = '#2d3748';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            const mugX = canvas.width / 2;
+            // --- LEFT SIDE: STATS ---
+            ctx.fillStyle = 'white';
+            ctx.font = '60px "Vt323"';
+            ctx.textAlign = 'center';
+            const title = gameState.victory ? "SHIFT SUMMARY" : gameState.failurePhrase || "SHIFT FAILED";
+            ctx.fillText(title, canvas.width * 0.25, 100);
+
+            ctx.font = '30px "Vt323"';
+            ctx.textAlign = 'left';
+            const startX = canvas.width * 0.25 - 150;
+            let y = 200;
+
+            ctx.fillText(`Babies Fed: ${gameState.stats.babiesFed}`, startX, y); y += 50;
+            ctx.fillText(`Diapers Changed: ${gameState.stats.diapersChanged}`, startX, y); y += 50;
+            ctx.fillText(`Families Calmed: ${gameState.stats.familiesCalmed}`, startX, y); y += 50;
+            ctx.fillText(`Alarms Silenced: ${gameState.stats.alarmsSilenced}`, startX, y); y += 50;
+            ctx.fillText(`Coffee Consumed: ${gameState.stats.coffeeConsumed}`, startX, y); y += 50;
+
+            ctx.textAlign = 'center';
+            ctx.fillText(`Total Score: ${gameState.score}`, canvas.width * 0.25, y + 50);
+
+            // Settings button
+            ctx.fillStyle = '#718096';
+            ctx.fillRect(canvas.width * 0.25 - 100, y + 100, 200, 50);
+            ctx.strokeStyle = '#4a5568';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(canvas.width * 0.25 - 100, y + 100, 200, 50);
+            ctx.fillStyle = 'white';
+            ctx.font = '30px "Vt323"';
+            ctx.fillText('⚙ SETTINGS', canvas.width * 0.25, y + 133);
+
+            // --- RIGHT SIDE: MUG ---
+            const mugX = canvas.width * 0.58;
             const mugY = canvas.height / 2;
             const mugW = 240; // Wider top
             const mugBaseW = 180; // Narrower bottom
@@ -2007,7 +2368,7 @@
             ctx.closePath();
 
             // Fill with shadow color
-            ctx.fillStyle = '#2d3748';
+            ctx.fillStyle = '#1a202c';
             ctx.fill();
 
             // Outline
@@ -2054,7 +2415,7 @@
                 ctx.restore();
             });
 
-            // Draw Score
+            // Draw Score (Mug Side)
             ctx.fillStyle = 'white';
             ctx.font = '60px "Vt323"';
             ctx.textAlign = 'center';
@@ -2066,37 +2427,6 @@
                 ctx.textAlign = 'center';
                 ctx.fillText("SHIFT COMPLETE", mugX, canvas.height - 50);
             }
-        }
-
-        function drawSummaryScreen() {
-            ctx.fillStyle = '#2d3748';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            ctx.fillStyle = 'white';
-            ctx.font = '60px "Vt323"';
-            ctx.textAlign = 'center';
-            ctx.fillText("SHIFT SUMMARY", canvas.width / 2, 100);
-
-            ctx.font = '30px "Vt323"';
-            ctx.textAlign = 'left';
-            const startX = canvas.width / 2 - 150;
-            let y = 200;
-
-            ctx.fillText(`Babies Fed: ${gameState.stats.babiesFed}`, startX, y); y += 50;
-            ctx.fillText(`Diapers Changed: ${gameState.stats.diapersChanged}`, startX, y); y += 50;
-            ctx.fillText(`Families Calmed: ${gameState.stats.familiesCalmed}`, startX, y); y += 50;
-            ctx.fillText(`Alarms Silenced: ${gameState.stats.alarmsSilenced}`, startX, y); y += 50;
-            ctx.fillText(`Coffee Consumed: ${gameState.stats.coffeeConsumed}`, startX, y); y += 50;
-
-            ctx.textAlign = 'center';
-            ctx.fillText(`Total Score: ${gameState.score}`, canvas.width / 2, y + 50);
-
-            // Draw "Next" Button
-            ctx.fillStyle = '#4299e1';
-            ctx.fillRect(canvas.width / 2 - 100, canvas.height - 150, 200, 60);
-            ctx.fillStyle = 'white';
-            ctx.font = '40px "Vt323"';
-            ctx.fillText("NEXT >", canvas.width / 2, canvas.height - 110);
         }
 
         function drawSticker(s) {
@@ -2187,7 +2517,9 @@
                 ctx.fill();
                 ctx.stroke();
                 ctx.fillStyle = 'black';
-                ctx.fillText("All yours.", nurse.pos.x, nurse.pos.y - 60);
+
+                const text = gameState.victory ? "All yours." : "I'm done.";
+                ctx.fillText(text, nurse.pos.x, nurse.pos.y - 60);
             }
         }
 
@@ -2226,22 +2558,23 @@
         }
 
         function endGame(victory) {
-            if (!victory) {
-                // Game Over (Sanity 0) - Skip report off, go straight to summary (or maybe game over screen?)
-                // For now, let's just go to summary but maybe with a different message?
-                // Actually, let's keep it simple and just do report off for victory (shift complete)
-                // But if sanity is 0, maybe we should just show summary with "Shift Failed"?
-                // The original code went to MUG.
-                // Let's do Report Off only if victory (Time ran out).
-                // If sanity 0, maybe skip to summary.
+            gameState.victory = victory; // Store for summary title
+
+            if (victory) {
+                gameState.mode = 'REPORTOFF';
+                gameState.cutsceneTimer = 0;
+                gameState.incomingNursePos = { x: canvas.width + 50, y: canvas.height / 2 };
+            } else {
+                gameState.mode = 'MUG';
+                // Select random failure phrase
+                gameState.failurePhrase = failurePhrases[Math.floor(Math.random() * failurePhrases.length)];
             }
 
-            gameState.mode = 'REPORTOFF';
-            gameState.cutsceneTimer = 0;
-            gameState.incomingNursePos = { x: canvas.width + 50, y: canvas.height / 2 };
-
             gameUiTop.style.display = 'none';
-            logPanel.style.display = 'none';
+            // Only hide log panel on victory (successful shift)
+            if (victory) {
+                logPanel.style.display = 'none';
+            }
             messageBox.style.opacity = 0;
             restartBtn.style.display = 'none';
 
@@ -2336,15 +2669,19 @@
             const pos = getMousePos(e);
 
             if (gameState.mode === 'MUG') {
-                return;
-            }
+                // Check for Settings button click (left side, below stats)
+                // Button position: canvas.width * 0.25 - 100, y + 100, 200, 50
+                // Need to calculate y position based on stats
+                const statsY = 200 + (5 * 50); // 5 stat lines * 50px each
+                const settingsBtnX = canvas.width * 0.25 - 100;
+                const settingsBtnY = statsY + 100;
+                const settingsBtnW = 200;
+                const settingsBtnH = 50;
 
-            if (gameState.mode === 'SUMMARY') {
-                // Check click on Next button
-                if (pos.x > canvas.width / 2 - 100 && pos.x < canvas.width / 2 + 100 &&
-                    pos.y > canvas.height - 150 && pos.y < canvas.height - 90) {
-                    gameState.mode = 'MUG';
-                    playBeep(600, 100);
+                if (pos.x > settingsBtnX && pos.x < settingsBtnX + settingsBtnW &&
+                    pos.y > settingsBtnY && pos.y < settingsBtnY + settingsBtnH) {
+                    openSettings();
+                    return;
                 }
                 return;
             }
