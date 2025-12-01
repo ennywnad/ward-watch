@@ -412,6 +412,11 @@
                     </div>
 
                     <div class="flex justify-between items-center">
+                        <label for="setting-alt-sprites">Alt Sprites (High Detail)</label>
+                        <input type="checkbox" id="setting-alt-sprites" onchange="toggleAltSprites()">
+                    </div>
+
+                    <div class="flex justify-between items-center">
                         <label>Reset Tutorial</label>
                         <button class="btn text-sm py-1" onclick="resetTutorial()">
                             RESET
@@ -502,12 +507,14 @@
 
 
 
+
         let settings = {
             volume: 0.5,
             nightShift: false,
             shortStaffed: false,
             tutorialSeen: false,
-            autoNurse: false
+            autoNurse: false,
+            altSprites: false
         };
 
         // Load from localStorage on page load
@@ -517,6 +524,7 @@
                 Object.assign(settings, JSON.parse(saved));
                 gameState.nightShift = settings.nightShift;
                 gameState.shortStaffed = settings.shortStaffed;
+                gameState.altSprites = settings.altSprites;
             }
             // Update UI elements based on loaded settings
             const volSlider = document.getElementById('volume-slider');
@@ -562,6 +570,9 @@
 
             const autoNurseCheckbox = document.getElementById('setting-auto-nurse');
             if (autoNurseCheckbox) autoNurseCheckbox.checked = settings.autoNurse;
+
+            const altSpritesCheckbox = document.getElementById('setting-alt-sprites');
+            if (altSpritesCheckbox) altSpritesCheckbox.checked = settings.altSprites;
         }
 
         function updateVolume(val) {
@@ -591,7 +602,19 @@
         function toggleAutoNurse() {
             settings.autoNurse = !settings.autoNurse;
             saveSettings();
-            updateAutoToggleButton();
+            // Update HUD button if visible
+            const hudBtn = document.getElementById('hud-auto-nurse');
+            if (hudBtn) {
+                hudBtn.classList.toggle('bg-green-600', settings.autoNurse);
+                hudBtn.classList.toggle('bg-gray-600', !settings.autoNurse);
+                hudBtn.innerText = settings.autoNurse ? "AUTO: ON" : "AUTO: OFF";
+            }
+        }
+
+        function toggleAltSprites() {
+            settings.altSprites = !settings.altSprites;
+            gameState.altSprites = settings.altSprites;
+            saveSettings();
         }
 
         function updateAutoToggleButton() {
@@ -764,16 +787,16 @@
                 "__NW__NW__"
             ],
             nurse_sit: [
-                "___WWWW___",
-                "___WWWW___",
-                "___SSSS___",
-                "___SRSS___",
-                "__BBBBBB__",
-                "__BBBBBB__",
-                "_BBBBBB___",
-                "_BBBBBB___",
-                "__BB______",
-                "__NW______"
+                "____WW____",
+                "____SS____",
+                "___WWW____",
+                "___WWW____",
+                "___WWWWWW_",
+                "____WW____",
+                "____WW____",
+                "__________",
+                "__________",
+                "__________"
             ],
             resident: [
                 "___HHHH___", // Hair
@@ -911,6 +934,26 @@
                 "___K_K____",
                 "___K_K____",
                 "___K_K____"
+            ],
+            chair: [
+                "___T______",
+                "___T______",
+                "___T______",
+                "___TTTT___",
+                "___T__T___",
+                "___T__T___",
+                "___T__T___",
+                "___T__T___"
+            ],
+            charting: [
+                "__________",
+                "___KKKK___",
+                "___KCCK___",
+                "___KKKK___",
+                "___TTTT___",
+                "___T__T___",
+                "___T__T___",
+                "___T__T___"
             ]
         };
 
@@ -949,6 +992,48 @@
                 "__LL__LL__"
             ]
         });
+
+        const SPRITES_ALT = {
+            nurse: [
+                "____WWWW____",
+                "____WWWW____",
+                "____SSSS____",
+                "____SKSK____", // Added eyes
+                "___BBBBBB___",
+                "___BBBBBB___",
+                "__BBWWWWBB__", // More detail on scrubs
+                "__BBBBBBBB__",
+                "___BB__BB___",
+                "___NW__NW___",
+                "___NW__NW___"  // Taller
+            ],
+            nurse_sit: [
+                "_____WW_____",
+                "_____SS_____",
+                "_____SS_____",
+                "____WWWW____",
+                "____WWWW____",
+                "____WWWWWW__",
+                "_____WW_____",
+                "_____WW_____",
+                "____________",
+                "____________",
+                "____________",
+                "____________"
+            ],
+            resident: [
+                "____HHHH____",
+                "____SSSS____",
+                "____SKSK____", // Eyes
+                "____WWWW____", // Mask
+                "___WWWWWW___",
+                "___C_WW_C___",
+                "__WC_WW_CW__",
+                "__WWCCCCWW__",
+                "___WW__WW___",
+                "___WW__WW___"
+            ]
+        };
 
         const nurseResponses = {
             dismissEnemy: [
@@ -997,7 +1082,12 @@
         ];
 
         function drawSprite(ctx, spriteKey, x, y, scale = PIXEL_SCALE) {
-            const data = SPRITES[spriteKey];
+            let data = SPRITES[spriteKey];
+            if (settings.altSprites && SPRITES_ALT && SPRITES_ALT[spriteKey]) {
+                data = SPRITES_ALT[spriteKey];
+                // Adjust scale to keep size roughly similar if resolution is higher?
+                // For now, let's keep scale same and see.
+            }
             if (!data) return;
             const width = data[0].length * scale;
             const height = data.length * scale;
@@ -1560,6 +1650,9 @@
                 this.timer = 30000; // 30 seconds before overdue
                 this.maxTimer = 30000;
             }
+            drawBody(ctx) {
+                drawSprite(ctx, 'charting', 0, 0, PIXEL_SCALE * 1.2);
+            }
             update(dt) {
                 this.timer -= dt;
                 if (this.timer <= 0) {
@@ -1648,10 +1741,10 @@
         class Chair extends Entity {
             constructor(x, y) { super(x, y, 'chair'); }
             draw(ctx) {
-                const x = this.pos.x; const y = this.pos.y; const s = PIXEL_SCALE / 4;
-                ctx.fillStyle = '#744210';
-                ctx.fillRect(x - 10 * s, y, 20 * s, 20 * s); ctx.fillRect(x - 10 * s, y - 20 * s, 5 * s, 20 * s);
-                ctx.fillRect(x + 5 * s, y - 20 * s, 5 * s, 20 * s); ctx.fillRect(x - 10 * s, y - 20 * s, 20 * s, 5 * s);
+                ctx.save();
+                ctx.translate(this.pos.x, this.pos.y);
+                drawSprite(ctx, 'chair', 0, 0, PIXEL_SCALE * 1.2);
+                ctx.restore();
             }
         }
 
@@ -1750,6 +1843,8 @@
             entities.push(...isolettes);
             chair = new Chair(canvas.width * 0.6, canvas.height * 0.9);
             entities.push(chair);
+            const chartingStation = new ChartingStation(canvas.width * 0.6 + 60, canvas.height * 0.9);
+            entities.push(chartingStation);
             nurse = new Nurse(canvas.width / 2, canvas.height / 2);
             entities.push(nurse);
         }
