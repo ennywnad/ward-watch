@@ -9,13 +9,24 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Vt323&display=swap');
 
+        :root {
+            --crt-bg: #111827;
+            --monitor-border: #374151;
+            --monitor-bg: #000000;
+            --text-primary: #e2e8f0;
+            --accent-green: #4ade80;
+            --accent-blue: #60a5fa;
+            --accent-red: #f87171;
+        }
+
         body {
             margin: 0;
             overflow: hidden;
-            background-color: #2d3748;
+            background-color: #0f172a;
             font-family: 'Vt323', monospace;
             touch-action: none;
             user-select: none;
+            color: var(--text-primary);
         }
 
         #game-container {
@@ -25,15 +36,56 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            background-color: #1a202c;
+            background-color: #000;
         }
 
         canvas {
-            background-color: #e2e8f0;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            background-color: #1e293b;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
             max-width: 100%;
             max-height: 100%;
             image-rendering: pixelated;
+        }
+
+        /* --- CRT EFFECT LAYERS --- */
+        .crt-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 2px, 3px 100%;
+            box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.7);
+        }
+
+        .crt-flicker {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 11;
+            background: rgba(255, 255, 255, 0.02);
+            opacity: 0;
+            animation: flicker 0.15s infinite;
+        }
+
+        @keyframes flicker {
+            0% {
+                opacity: 0.01;
+            }
+
+            50% {
+                opacity: 0.03;
+            }
+
+            100% {
+                opacity: 0.01;
+            }
         }
 
         #ui-layer {
@@ -46,196 +98,215 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            padding: 10px;
+            padding: 16px;
             box-sizing: border-box;
+            z-index: 20;
         }
 
         .hud-panel {
-            background: rgba(0, 0, 0, 0.85);
+            background: rgba(17, 24, 39, 0.9);
             color: #fff;
-            padding: 10px;
-            border-radius: 4px;
+            padding: 8px 16px;
+            border-radius: 2px;
             pointer-events: auto;
-            font-size: 1.5rem;
-            border: 4px solid #4a5568;
+            font-size: 1.8rem;
+            border: 2px solid #475569;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(0, 0, 0, 0.5);
+            text-shadow: 0 0 4px rgba(255, 255, 255, 0.3);
             white-space: nowrap;
-            box-shadow: 4px 4px 0px #000;
+            position: relative;
+        }
+
+        .hud-panel::before {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            right: 2px;
+            bottom: 2px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            pointer-events: none;
         }
 
         .pause-btn {
-            background: #e53e3e;
-            border-color: #9b2c2c;
+            background: #991b1b;
+            border-color: #ef4444;
+            color: #fecaca;
             cursor: pointer;
-            transition: transform 0.1s;
+            transition: all 0.1s;
+        }
+
+        .pause-btn:hover {
+            background: #b91c1c;
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
         }
 
         .pause-btn:active {
-            transform: translate(2px, 2px);
-            box-shadow: 2px 2px 0px #000;
+            transform: translateY(2px);
         }
 
         .mug-btn {
             position: absolute;
             bottom: 30px;
             right: 30px;
-            background: #3182ce;
-            color: white;
-            border: 4px solid #2c5282;
+            background: #1e40af;
+            color: #bfdbfe;
+            border: 2px solid #60a5fa;
             padding: 10px 20px;
             font-size: 1.5rem;
             font-family: 'Vt323', monospace;
             cursor: pointer;
-            box-shadow: 6px 6px 0px #000;
+            box-shadow: 0 4px 0 #1e3a8a, 0 0 10px rgba(0, 0, 0, 0.5);
             pointer-events: auto;
             display: none;
             z-index: 50;
+            transition: transform 0.1s;
         }
 
         .mug-btn:hover {
-            background: #2b6cb0;
-            transform: translate(-2px, -2px);
-            box-shadow: 8px 8px 0px #000;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 0 #1e3a8a, 0 0 15px rgba(96, 165, 250, 0.4);
+        }
+
+        .mug-btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 0 0 #1e3a8a;
+        }
+
+        #sanity-container-ui {
+            min-width: 220px;
         }
 
         #sanity-bar-container {
-            width: 200px;
-            height: 20px;
-            background: #2d3748;
-            border: 2px solid #fff;
+            width: 100%;
+            height: 24px;
+            background: #1f2937;
+            border: 2px solid #4b5563;
             margin-top: 5px;
+            position: relative;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
+        }
+
+        /* Scanline for the bar */
+        #sanity-bar-container::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+            background-size: 100% 4px;
+            pointer-events: none;
         }
 
         #sanity-bar {
             width: 100%;
             height: 100%;
-            background: #48bb78;
-            transition: width 0.2s, background 0.2s;
+            background: linear-gradient(90deg, #22c55e, #4ade80);
+            box-shadow: 0 0 10px #22c55e;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s;
         }
 
         #log-panel {
             position: absolute;
-            right: 10px;
-            top: 90px;
-            bottom: 10px;
-            width: 450px;
-            background: rgba(0, 0, 0, 0.2);
-            border: 2px solid rgba(113, 128, 150, 0.5);
+            right: 16px;
+            top: 100px;
+            bottom: 16px;
+            width: 400px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 2px solid #334155;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
             border-radius: 4px;
-            padding: 8px;
-            overflow-y: auto;
+            padding: 12px;
+            overflow-y: hidden;
             pointer-events: none;
             font-family: 'Vt323', monospace;
             display: flex;
             flex-direction: column-reverse;
         }
 
-        #log-panel::-webkit-scrollbar {
-            display: none;
-        }
-
-        #log-panel {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
+        /* Terminal styling for log */
+        #log-panel::before {
+            content: 'SYSTEM LOG //';
+            display: block;
+            color: #475569;
+            font-size: 1rem;
+            border-bottom: 1px dashed #334155;
+            margin-bottom: 8px;
+            padding-bottom: 4px;
         }
 
         .log-entry {
-            margin-bottom: 6px;
-            border-bottom: 1px solid rgba(74, 85, 104, 0.5);
-            padding-bottom: 4px;
-            line-height: 1.1;
-            text-shadow: 2px 2px 0 #000;
+            margin-bottom: 4px;
+            padding: 4px 8px;
+            line-height: 1.2;
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 2px solid transparent;
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateX(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
         }
 
         .log-time {
-            color: #a0aec0;
-            font-size: 0.8rem;
-            margin-right: 4px;
+            color: #64748b;
+            font-size: 0.9rem;
+            margin-right: 6px;
+            font-family: monospace;
         }
 
         .log-speaker {
             font-weight: bold;
-            margin-right: 4px;
-            font-size: 0.95rem;
+            margin-right: 6px;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .log-msg {
-            font-size: 0.95rem;
-            color: #e2e8f0;
+            font-size: 1.1rem;
+            color: #cbd5e1;
+            text-shadow: 0 0 2px rgba(255, 255, 255, 0.2);
         }
 
+        /* Log Colors - Pop more against dark bg */
         .sp-resident {
-            color: #90cdf4;
+            color: #60a5fa;
         }
 
         .sp-mom {
-            color: #f687b3;
+            color: #f472b6;
         }
 
         .sp-dad {
-            color: #63b3ed;
+            color: #38bdf8;
         }
 
         .sp-surgeon {
-            color: #fc8181;
+            color: #ef4444;
         }
 
         .sp-nurse {
-            color: #68d391;
+            color: #4ade80;
+            border-left-color: #4ade80;
+            background: rgba(74, 222, 128, 0.1);
         }
 
         .sp-admin {
-            color: #d6bcfa;
+            color: #c084fc;
         }
 
         #modal-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-            pointer-events: auto;
-        }
-
-        .modal-content {
-            background: #2d3748;
-            color: white;
-            padding: 2rem;
-            border-radius: 0px;
-            text-align: center;
-            border: 4px solid #fff;
-            box-shadow: 8px 8px 0px #000;
-            max-width: 600px;
-        }
-
-        .btn {
-            background: #3182ce;
-            color: white;
-            border: 4px solid #2c5282;
-            padding: 10px 20px;
-            font-size: 1.5rem;
-            font-family: 'Vt323', monospace;
-            cursor: pointer;
-            margin-top: 1rem;
-            box-shadow: 4px 4px 0px #000;
-        }
-
-        .btn:hover {
-            background: #2b6cb0;
-            transform: translate(-2px, -2px);
-            box-shadow: 6px 6px 0px #000;
-        }
-
-        .btn:active {
-            transform: translate(2px, 2px);
-            box-shadow: 2px 2px 0px #000;
-        }
-
-        #settings-overlay {
             position: absolute;
             top: 0;
             left: 0;
@@ -245,40 +316,108 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            z-index: 100;
+            pointer-events: auto;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-content {
+            background: #0f172a;
+            color: white;
+            padding: 2.5rem;
+            border: 2px solid #3b82f6;
+            box-shadow: 0 0 30px rgba(59, 130, 246, 0.3), inset 0 0 50px rgba(0, 0, 0, 0.8);
+            text-align: center;
+            max-width: 650px;
+            position: relative;
+        }
+
+        .modal-content::after {
+            content: '';
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            right: 4px;
+            bottom: 4px;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            pointer-events: none;
+        }
+
+        .btn {
+            background: #1e3a8a;
+            color: #bfdbfe;
+            border: 2px solid #60a5fa;
+            padding: 12px 24px;
+            font-size: 1.6rem;
+            font-family: 'Vt323', monospace;
+            cursor: pointer;
+            margin-top: 1rem;
+            box-shadow: 0 4px 0 #172554, 0 10px 10px rgba(0, 0, 0, 0.3);
+            transition: all 0.1s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn:hover {
+            background: #1e40af;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 0 #172554, 0 15px 15px rgba(59, 130, 246, 0.2);
+            text-shadow: 0 0 8px rgba(191, 219, 254, 0.8);
+        }
+
+        .btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 0 0 #172554;
+        }
+
+        #settings-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
             z-index: 150;
             pointer-events: auto;
         }
 
         #settings-overlay input[type="range"] {
             cursor: pointer;
+            accent-color: #3b82f6;
+        }
+
+        input[type="checkbox"] {
+            accent-color: #3b82f6;
+            transform: scale(1.5);
         }
 
         #auto-nurse-toggle {
-            position: absolute;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(45, 55, 72, 0.9);
-            border: 2px solid #718096;
-            color: #a0aec0;
-            padding: 4px 10px;
+            position: static;
+            /* top: 10px; */
+            /* left: 50%; */
+            /* transform: translateX(-50%); */
+            background: #0f172a;
+            border: 2px solid #475569;
+            color: #94a3b8;
+            padding: 6px 14px;
             font-family: 'Vt323', monospace;
-            font-size: 14px;
+            font-size: 1.2rem;
             cursor: pointer;
             border-radius: 4px;
             transition: all 0.2s;
             z-index: 100;
             pointer-events: auto;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
         }
 
         #auto-nurse-toggle.active {
-            background: rgba(72, 187, 120, 0.3);
-            border-color: #48bb78;
-            color: #48bb78;
-        }
-
-        #auto-nurse-toggle:hover {
-            border-color: #fff;
+            background: rgba(16, 185, 129, 0.2);
+            border-color: #10b981;
+            color: #34d399;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
         }
 
         #character-roster-overlay {
@@ -296,13 +435,34 @@
         }
 
         #character-roster-overlay .roster-content {
-            background: #2d3748;
+            background: #0f172a;
             padding: 40px;
-            border-radius: 8px;
-            border: 4px solid #4a5568;
+            border: 2px solid #6366f1;
+            box-shadow: 0 0 40px rgba(99, 102, 241, 0.2);
             max-width: 600px;
             width: 90%;
             text-align: center;
+            position: relative;
+        }
+
+        /* Grid Lines overlay for Roster */
+        #character-roster-overlay .roster-content::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: linear-gradient(#1e293b 1px, transparent 1px), linear-gradient(90deg, #1e293b 1px, transparent 1px);
+            background-size: 20px 20px;
+            opacity: 0.3;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .roster-inner {
+            position: relative;
+            z-index: 1;
         }
 
         #character-sprite-display {
@@ -312,6 +472,22 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            background: #000;
+            border: 2px solid #333;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+        }
+
+        /* Utility classes for text shadows */
+        .neon-text-blue {
+            text-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
+        }
+
+        .neon-text-green {
+            text-shadow: 0 0 10px rgba(74, 222, 128, 0.8);
+        }
+
+        .neon-text-red {
+            text-shadow: 0 0 10px rgba(248, 113, 113, 0.8);
         }
     </style>
 </head>
@@ -319,143 +495,178 @@
 <body>
 
     <div id="game-container">
+        <!-- Visual Effect Layers -->
+        <div class="crt-overlay"></div>
+        <div class="crt-flicker"></div>
+
         <canvas id="gameCanvas"></canvas>
 
         <div id="ui-layer">
             <div class="flex justify-between w-full items-start" id="game-ui-top">
-                <div class="hud-panel">
-                    <div>TIME: <span id="timer">07:00</span></div>
-                    <div>SCORE: <span id="score">0</span></div>
+                <div class="flex gap-4 items-start">
+                    <div class="hud-panel">
+                        <div class="text-gray-400 text-sm mb-1 tracking-widest">SYSTEM TIME</div>
+                        <div class="text-3xl neon-text-blue" id="timer">07:00</div>
+                        <div class="border-t border-gray-600 mt-2 pt-1 flex justify-between gap-4">
+                            <span class="text-gray-400 text-base">SCORE</span>
+                            <span id="score" class="text-yellow-400">0</span>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-2">
+                        <button id="auto-nurse-toggle" onclick="toggleAutoNurse()">AUTO NURSE</button>
+                        <button id="pause-btn" class="hud-panel pause-btn" onclick="togglePause()">
+                            ⏸ PAUSE
+                        </button>
+                        <button id="hud-settings-btn" class="hud-panel" onclick="openSettings()"
+                            style="font-size: 2.5rem; padding: 0; width: 50px; background: transparent; border: none; box-shadow: none; display: flex; justify-content: center; align-items: center; color: #475569; cursor: pointer;">
+                            ⚙
+                        </button>
+                    </div>
                 </div>
 
-                <button id="pause-btn" class="hud-panel pause-btn" onclick="togglePause()">
-                    ⏸ PAUSE
-                </button>
-
                 <div class="hud-panel" id="sanity-container-ui">
-                    <div>SANITY</div>
+                    <div class="flex justify-between items-end mb-1">
+                        <span class="text-gray-400 text-sm tracking-widest">SANITY LEVELS</span>
+                        <span id="sanity-percent" class="text-sm text-green-400">100%</span>
+                    </div>
                     <div id="sanity-bar-container">
                         <div id="sanity-bar"></div>
                     </div>
                 </div>
             </div>
 
-            <button id="auto-nurse-toggle" onclick="toggleAutoNurse()">AUTO</button>
-
             <div id="log-panel">
-                <div class="log-entry"><span class="log-time">07:00</span> <span class="log-msg text-gray-400">Shift
-                        started. Good luck.</span></div>
+                <div class="log-entry"><span class="log-time">07:00</span> <span class="log-msg text-gray-500">System
+                        Initialized. Good luck.</span></div>
             </div>
 
-            <div class="hud-panel self-center" id="message-box" style="opacity: 0; transition: opacity 0.5s;">
-                <span id="message-text">Shift Started!</span>
+            <div class="hud-panel self-center" id="message-box"
+                style="opacity: 0; transition: opacity 0.5s; background: rgba(0,0,0,0.9); border: 2px solid #fff; box-shadow: 0 0 30px white;">
+                <span id="message-text" class="text-4xl text-white neon-text-blue">Shift Started!</span>
             </div>
-
-            <button id="restart-btn" class="mug-btn" onclick="startGame()">NEXT SHIFT</button>
+            <!-- restart-btn removed -->
         </div>
 
         <div id="modal-overlay">
-            <div class="modal-content">
-                <h1 class="text-4xl mb-4 text-blue-300">SHIFT GOALS</h1>
-                <p class="text-xl mb-4">NICU Edition</p>
-                <div class="grid grid-cols-2 gap-4 text-left text-lg mb-6">
-                    <div>
-                        <h3 class="text-green-400 font-bold">GOOD STUFF</h3>
-                        <ul class="space-y-1">
-                            <li>☕ <strong>Coffee:</strong> Speed Boost</li>
-                            <li>🍕 <strong>Pizza:</strong> Food! (+Sanity)</li>
-                            <li>🧻 <strong>Break:</strong> Max Sanity</li>
-                            <li>🪑 <strong>Chair:</strong> Sit to heal.</li>
+            <div class="modal-content" style="max-width: 800px;">
+                <h1 class="text-5xl mb-2 text-blue-400 neon-text-blue" style="font-family: 'Vt323';">SHIFT GOALS</h1>
+                <p class="text-xl mb-6 text-blue-200 tracking-widest border-b border-blue-900 pb-2">NICU SIMULATION
+                    MODULE v2.0</p>
+
+                <div class="grid grid-cols-2 gap-8 text-left text-lg mb-8">
+                    <div class="bg-slate-900/50 p-4 border border-slate-700">
+                        <h3 class="text-green-400 font-bold mb-2 neon-text-green">>> POSITIVES</h3>
+                        <ul class="space-y-2 text-slate-300">
+                            <li>☕ <strong>Coffee:</strong> Speed +50%</li>
+                            <li>🍕 <strong>Pizza:</strong> Sanity +20</li>
+                            <li>🧻 <strong>Break:</strong> Sanity MAX</li>
+                            <li>🪑 <strong>Chair:</strong> Regen Sanity</li>
                         </ul>
                     </div>
-                    <div>
-                        <h3 class="text-red-400 font-bold">BAD STUFF</h3>
-                        <ul class="space-y-1">
-                            <li>😷 <strong>Surgeon:</strong> Arrogant</li>
-                            <li>👨‍⚕️ <strong>Resident:</strong> Clueless</li>
-                            <li>🎁 <strong>Admin:</strong> "Wellness" Traps</li>
+                    <div class="bg-slate-900/50 p-4 border border-slate-700">
+                        <h3 class="text-red-400 font-bold mb-2 neon-text-red">>> HAZARDS</h3>
+                        <ul class="space-y-2 text-slate-300">
+                            <li>😷 <strong>Surgeon:</strong> High Drain</li>
+                            <li>👨‍⚕️ <strong>Resident:</strong> Confused</li>
+                            <li>🎁 <strong>Admin:</strong> "Wellness" Trap</li>
                         </ul>
                     </div>
                 </div>
-                <p class="text-md italic mb-4 text-gray-400">"Earn stickers for your mug!"</p>
-                <button class="btn" onclick="startGame()">CLOCK IN</button>
-                <button class="btn" onclick="openSettings()" style="margin-top: 0.5rem; background: #718096;">
-                    ⚙ SETTINGS
-                </button>
+                <p class="text-md italic mb-6 text-gray-500 blink">"Earn digital stickers for your mug!"</p>
+                <div class="flex gap-4 justify-center">
+                    <button class="btn w-40" onclick="startGame()">START</button>
+                    <button class="btn w-16" onclick="openSettings()"
+                        style="background: transparent; border: none; box-shadow: none; color: #475569; padding: 0; display: flex; justify-content: center; align-items: center; font-size: 4rem;">
+                        ⚙
+                    </button>
+                </div>
             </div>
         </div>
 
         <div id="settings-overlay" style="display: none;">
-            <div class="modal-content" style="max-width: 400px;">
-                <h2 class="text-3xl mb-4 text-blue-300">SETTINGS</h2>
+            <div class="modal-content" style="max-width: 450px;">
+                <h2 class="text-4xl mb-6 text-blue-400 neon-text-blue">SETTINGS</h2>
 
-                <div class="text-left space-y-4">
+                <div class="text-left space-y-6 bg-slate-900/50 p-6 border border-slate-700">
                     <div class="flex justify-between items-center">
-                        <label>Volume</label>
+                        <label class="text-xl text-blue-200">Volume</label>
                         <input type="range" id="volume-slider" min="0" max="100" value="50" class="w-32"
                             onchange="updateVolume(this.value)">
                     </div>
 
                     <div class="flex justify-between items-center">
-                        <label for="setting-night-shift">Night Shift Mode</label>
+                        <label for="setting-night-shift" class="text-xl text-blue-200">Night Shift Mode</label>
                         <input type="checkbox" id="setting-night-shift" onchange="toggleNightShift()">
                     </div>
 
                     <div class="flex justify-between items-center">
-                        <label for="setting-short-staffed">Short Staffed Mode</label>
+                        <label for="setting-short-staffed" class="text-xl text-blue-200">Short Staffed</label>
                         <input type="checkbox" id="setting-short-staffed" onchange="toggleShortStaffed()">
                     </div>
 
                     <div class="flex justify-between items-center">
-                        <label for="setting-auto-nurse">Auto Nurse Mode</label>
+                        <label for="setting-auto-nurse" class="text-xl text-blue-200">Auto Pilot</label>
                         <input type="checkbox" id="setting-auto-nurse" onchange="toggleAutoNurse()">
                     </div>
 
                     <div class="flex justify-between items-center">
-                        <label for="setting-alt-sprites">Alt Sprites (High Detail)</label>
+                        <label for="setting-alt-sprites" class="text-xl text-blue-200">Hi-Res Sprites</label>
                         <input type="checkbox" id="setting-alt-sprites" onchange="toggleAltSprites()">
-                    </div>
-
-                    <div class="flex justify-between items-center">
-                        <label>Reset Tutorial</label>
-                        <button class="btn text-sm py-1" onclick="resetTutorial()">
-                            RESET
-                        </button>
-                    </div>
-
-                    <div class="flex justify-between items-center">
-                        <button class="btn" onclick="openCharacterRoster()" style="width: 100%; margin-top: 1rem;">
-                            📋 CHARACTER ROSTER
-                        </button>
                     </div>
                 </div>
 
-                <button class="btn mt-6" onclick="closeSettings()">DONE</button>
+                <div class="flex gap-2 mt-4">
+                    <button class="btn flex-1 py-2 text-xl" onclick="openCharacterRoster('standard')">
+                        ROSTER
+                    </button>
+                    <button class="btn flex-1 py-2 text-xl" onclick="resetTutorial()"
+                        style="background: #334155; border-color: #64748b;">
+                        RESET TUTORIAL
+                    </button>
+                </div>
+
+                <div class="flex gap-2 mt-2">
+                    <button class="btn w-full py-2 text-xl" onclick="openCharacterRoster('alt')"
+                        style="background-color: #6b46c1;">
+                        ALT DESIGNS ROSTER
+                    </button>
+                </div>
+
+                <button class="btn mt-6 w-full" onclick="closeSettings()">SAVE & EXIT</button>
             </div>
         </div>
 
         <div id="character-roster-overlay">
             <div class="roster-content">
-                <h2 class="text-3xl mb-4 text-blue-300" style="font-family: 'Vt323', monospace;">CHARACTER ROSTER</h2>
+                <div class="roster-inner">
+                    <h2 class="text-4xl mb-4 text-indigo-400 neon-text-blue" style="font-family: 'Vt323', monospace;">
+                        DATABASE</h2>
 
-                <div id="character-sprite-display"></div>
+                    <div id="character-sprite-display"></div>
 
-                <h3 class="text-2xl text-white mb-2" id="character-name" style="font-family: 'Vt323', monospace;"></h3>
-                <p class="text-lg text-gray-300 mb-2" id="character-role" style="font-family: 'Vt323', monospace;"></p>
-                <p class="text-md text-pink-300 italic mb-4" id="character-quote"
-                    style="font-family: 'Vt323', monospace;"></p>
+                    <h3 class="text-3xl text-white mb-1 mt-4" id="character-name"
+                        style="font-family: 'Vt323', monospace;"></h3>
+                    <p class="text-xl text-indigo-300 mb-4" id="character-role"
+                        style="font-family: 'Vt323', monospace;"></p>
+                    <div class="bg-slate-900/80 p-3 border border-slate-700 mb-4">
+                        <p class="text-xl text-pink-300 italic" id="character-quote"
+                            style="font-family: 'Vt323', monospace;"></p>
+                    </div>
 
-                <div class="text-left text-white mb-4" id="character-stats"
-                    style="font-family: 'Vt323', monospace; font-size: 18px;"></div>
+                    <div class="text-left text-slate-300 mb-6 bg-slate-900/50 p-4 border border-slate-800"
+                        id="character-stats" style="font-family: 'Vt323', monospace; font-size: 20px;"></div>
 
-                <div class="flex justify-between mb-4">
-                    <button class="btn" onclick="prevCharacter()">← PREV</button>
-                    <span class="text-white" id="character-counter"
-                        style="font-family: 'Vt323', monospace; font-size: 20px; align-self: center;">1 / 9</span>
-                    <button class="btn" onclick="nextCharacter()">NEXT →</button>
+                    <div class="flex justify-between mb-4 gap-4">
+                        <button class="btn flex-1" onclick="prevCharacter()">PREV</button>
+                        <span class="text-white" id="character-counter"
+                            style="font-family: 'Vt323', monospace; font-size: 24px; align-self: center;">1 / 9</span>
+                        <button class="btn flex-1" onclick="nextCharacter()">NEXT</button>
+                    </div>
+
+                    <button class="btn w-full" onclick="closeCharacterRoster()"
+                        style="background: #334155; border-color: #64748b;">CLOSE DB</button>
                 </div>
-
-                <button class="btn" onclick="closeCharacterRoster()">EXIT</button>
             </div>
         </div>
     </div>
@@ -464,6 +675,7 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const sanityBar = document.getElementById('sanity-bar');
+        const sanityPercent = document.getElementById('sanity-percent');
         const timerDisplay = document.getElementById('timer');
         const scoreDisplay = document.getElementById('score');
         const messageBox = document.getElementById('message-box');
@@ -472,7 +684,7 @@
         const modalContent = document.querySelector('.modal-content');
         const logPanel = document.getElementById('log-panel');
         const pauseBtn = document.getElementById('pause-btn');
-        const restartBtn = document.getElementById('restart-btn');
+        // const restartBtn = document.getElementById('restart-btn'); // Removed
         const gameUiTop = document.getElementById('game-ui-top');
 
         const SHIFT_START = 7 * 60;
@@ -486,6 +698,22 @@
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             }
+        }
+
+        // Polyfill for roundRect
+        if (!CanvasRenderingContext2D.prototype.roundRect) {
+            CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+                if (w < 2 * r) r = w / 2;
+                if (h < 2 * r) r = h / 2;
+                this.beginPath();
+                this.moveTo(x + r, y);
+                this.arcTo(x + w, y, x + w, y + h, r);
+                this.arcTo(x + w, y + h, x, y + h, r);
+                this.arcTo(x, y + h, x, y, r);
+                this.arcTo(x, y, x + w, y, r);
+                this.closePath();
+                return this;
+            };
         }
 
         function playBeep(frequency = 440, duration = 100) {
@@ -607,8 +835,9 @@
             if (hudBtn) {
                 hudBtn.classList.toggle('bg-green-600', settings.autoNurse);
                 hudBtn.classList.toggle('bg-gray-600', !settings.autoNurse);
-                hudBtn.innerText = settings.autoNurse ? "AUTO: ON" : "AUTO: OFF";
+                // hudBtn.innerText = settings.autoNurse ? "AUTO: ON" : "AUTO: OFF";
             }
+            updateAutoToggleButton();
         }
 
         function toggleAltSprites() {
@@ -645,8 +874,10 @@
         ];
 
         let currentCharacterIndex = 0;
+        let currentRosterMode = 'standard';
 
-        function openCharacterRoster() {
+        function openCharacterRoster(mode = 'standard') {
+            currentRosterMode = mode;
             document.getElementById('settings-overlay').style.display = 'none';
             document.getElementById('character-roster-overlay').style.display = 'flex';
             currentCharacterIndex = 0;
@@ -686,7 +917,7 @@
                 // Fill with dark background
                 spriteCtx.fillStyle = '#2d3748';
                 spriteCtx.fillRect(0, 0, 200, 200);
-                drawSprite(spriteCtx, char.sprite, 100, 100, 20);
+                drawSprite(spriteCtx, char.sprite, 100, 100, 20, currentRosterMode === 'alt');
                 spriteDiv.appendChild(spriteCanvas);
             } else {
                 const emoji = document.createElement('div');
@@ -1081,12 +1312,10 @@
             "Off The Clock"
         ];
 
-        function drawSprite(ctx, spriteKey, x, y, scale = PIXEL_SCALE) {
+        function drawSprite(ctx, spriteKey, x, y, scale = PIXEL_SCALE, forceAlt = false) {
             let data = SPRITES[spriteKey];
-            if (settings.altSprites && SPRITES_ALT && SPRITES_ALT[spriteKey]) {
+            if ((settings.altSprites || forceAlt) && SPRITES_ALT && SPRITES_ALT[spriteKey]) {
                 data = SPRITES_ALT[spriteKey];
-                // Adjust scale to keep size roughly similar if resolution is higher?
-                // For now, let's keep scale same and see.
             }
             if (!data) return;
             const width = data[0].length * scale;
@@ -1094,20 +1323,29 @@
             const startX = x - width / 2;
             const startY = y - height / 2;
 
-            if (!spriteKey.startsWith('machine_')) {
-                ctx.fillStyle = 'rgba(0,0,0,0.2)';
-                ctx.beginPath();
-                ctx.ellipse(x, y + height / 3, width / 1.5, width / 4, 0, 0, Math.PI * 2);
-                ctx.fill();
-            }
+            // Simple drop shadow for all sprites to ground them
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.beginPath();
+            ctx.ellipse(x, y + height / 2 - 2, width / 2, width / 6, 0, 0, Math.PI * 2);
+            ctx.fill();
 
+            // Draw Sprite
             for (let r = 0; r < data.length; r++) {
                 for (let c = 0; c < data[0].length; c++) {
                     const char = data[r][c];
                     const color = COLORS[char];
                     if (color) {
+                        // Main pixel
                         ctx.fillStyle = color;
                         ctx.fillRect(startX + c * scale, startY + r * scale, scale, scale);
+
+                        // Subtle highlight
+                        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+                        ctx.fillRect(startX + c * scale, startY + r * scale, scale, 2);
+
+                        // Subtle shadow
+                        ctx.fillStyle = 'rgba(0,0,0,0.1)';
+                        ctx.fillRect(startX + c * scale, startY + r * scale + scale - 2, scale, 2);
                     }
                 }
             }
@@ -1135,6 +1373,8 @@
             else if (speakerType === 'medicalfamily') { speakerName = "Fam"; speakerClass = "sp-mom"; } // Reuse mom color
             else if (speakerType === 'sickvisitor') { speakerName = "Vis"; speakerClass = "text-green-400"; }
             else if (speakerType === 'floorcleaner') { speakerName = "Clean"; speakerClass = "text-gray-500"; }
+            else if (speakerType === 'photographer') { speakerName = "Photo"; speakerClass = "text-yellow-200"; }
+            else if (speakerType === 'attending') { speakerName = "Attend"; speakerClass = "text-red-400"; }
 
             entry.innerHTML = `
             <span class="log-time">${timeStr}</span>
@@ -1166,9 +1406,13 @@
                 gameState.pausePhrase = sassyPhrases[Math.floor(Math.random() * sassyPhrases.length)];
                 pauseBtn.innerText = "▶ RESUME";
                 pauseBtn.style.backgroundColor = "#4299e1";
+                pauseBtn.style.color = "#fff";
+                pauseBtn.style.borderColor = "#fff";
             } else {
                 pauseBtn.innerText = "⏸ PAUSE";
-                pauseBtn.style.backgroundColor = "#e53e3e";
+                pauseBtn.style.backgroundColor = "";
+                pauseBtn.style.color = "";
+                pauseBtn.style.borderColor = "";
                 gameState.lastTime = performance.now();
             }
         }
@@ -1219,16 +1463,18 @@
                 this.drawBody(ctx);
                 if (this.bubble) {
                     ctx.font = `${20 * (PIXEL_SCALE / 4)}px "Vt323"`;
-                    ctx.fillStyle = 'white';
-                    ctx.strokeStyle = 'black';
+                    ctx.fillStyle = '#fff';
+                    ctx.strokeStyle = '#000';
                     ctx.lineWidth = 2;
                     ctx.beginPath();
-                    ctx.roundRect(-40, -100, 80, 60, 5);
+                    const w = ctx.measureText(this.bubble.text).width + 20;
+                    ctx.roundRect(-w / 2, -80, w, 40, 5);
                     ctx.fill();
                     ctx.stroke();
-                    ctx.fillStyle = 'black';
+                    ctx.fillStyle = '#000';
                     ctx.textAlign = 'center';
-                    ctx.fillText("...", 0, -60);
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(this.bubble.text, 0, -60);
                 }
                 ctx.restore();
             }
@@ -1237,7 +1483,7 @@
             onArrive() { }
 
             say(text, logSpeakerType = null) {
-                this.bubble = { text: "...", life: 2000 };
+                this.bubble = { text: text || "...", life: 2000 };
                 addLogEntry(logSpeakerType || this.type, text);
             }
         }
@@ -1325,8 +1571,10 @@
                 // Draw Shield Effect
                 if (this.shieldTimer > 0) {
                     ctx.save();
-                    ctx.globalAlpha = 0.3 + Math.sin(Date.now() / 100) * 0.1;
-                    ctx.fillStyle = '#68d391';
+                    ctx.globalAlpha = 0.5 + Math.sin(Date.now() / 100) * 0.2;
+                    ctx.fillStyle = '#4ade80';
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = '#4ade80';
                     ctx.beginPath();
                     ctx.arc(this.pos.x, this.pos.y, 40, 0, Math.PI * 2);
                     ctx.fill();
@@ -1336,30 +1584,35 @@
                 // Draw Freeze Effect
                 if (this.freezeTimer > 0) {
                     ctx.save();
-                    ctx.fillStyle = 'rgba(66, 153, 225, 0.5)';
-                    ctx.fillRect(this.pos.x - 20, this.pos.y - 40, 40, 80);
+                    ctx.fillStyle = 'rgba(96, 165, 250, 0.5)';
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = '#60a5fa';
+                    ctx.fillRect(this.pos.x - 25, this.pos.y - 45, 50, 90);
                     ctx.restore();
                 }
 
                 drawSprite(ctx, sprite, this.pos.x, this.pos.y);
 
                 if (gameState.coffeeBoost > 0 && this.state !== 'sitting') {
-                    ctx.fillStyle = 'orange';
-                    ctx.font = `${20 * (PIXEL_SCALE / 4)}px Arial`;
-                    ctx.fillText('⚡', this.pos.x + 10 * (PIXEL_SCALE / 4), this.pos.y - 20 * (PIXEL_SCALE / 4));
+                    ctx.fillStyle = '#facc15';
+                    ctx.font = `bold ${24 * (PIXEL_SCALE / 4)}px Arial`;
+                    ctx.shadowBlur = 5;
+                    ctx.shadowColor = 'yellow';
+                    ctx.fillText('⚡', this.pos.x + 15, this.pos.y - 30);
                 }
                 if (this.bubble) {
-                    ctx.font = `${20 * (PIXEL_SCALE / 4)}px "Vt323"`;
-                    ctx.fillStyle = 'white';
-                    ctx.strokeStyle = 'black';
+                    ctx.font = `${24 * (PIXEL_SCALE / 4)}px "Vt323"`;
+                    const w = ctx.measureText(this.bubble.text).width + 20;
+                    ctx.fillStyle = '#0f172a';
+                    ctx.strokeStyle = '#4ade80';
                     ctx.lineWidth = 2;
                     ctx.beginPath();
-                    ctx.roundRect(this.pos.x - 40, this.pos.y - 100, 80, 60, 5);
+                    ctx.roundRect(this.pos.x - w / 2, this.pos.y - 100, w, 40, 5);
                     ctx.fill();
                     ctx.stroke();
-                    ctx.fillStyle = 'black';
+                    ctx.fillStyle = '#4ade80';
                     ctx.textAlign = 'center';
-                    ctx.fillText("...", this.pos.x, this.pos.y - 60);
+                    ctx.fillText(this.bubble.text, this.pos.x, this.pos.y - 75);
                 }
             }
         }
@@ -1388,7 +1641,7 @@
 
                     if (!this.needs.includes(newNeed)) {
                         this.needs.push(newNeed);
-                        playSoundVisual(this.pos.x, this.pos.y, "BEEP!");
+                        playSoundVisual(this.pos.x, this.pos.y, "ALERT!");
                         playBeep(600, 150);
                     }
                     this.needTimer = Math.random() * 10000 + 10000;
@@ -1402,9 +1655,15 @@
             }
             drawBody(ctx) {
                 const scaleFactor = PIXEL_SCALE / 6;
-                ctx.fillStyle = '#a0aec0'; ctx.fillRect(-15 * scaleFactor, -8 * scaleFactor, 30 * scaleFactor, 25 * scaleFactor);
-                ctx.fillStyle = '#718096'; ctx.fillRect(-15 * scaleFactor, 17 * scaleFactor, 30 * scaleFactor, 4 * scaleFactor);
-                ctx.fillStyle = '#edf2f7'; ctx.beginPath(); ctx.arc(0, -8 * scaleFactor, 18 * scaleFactor, Math.PI, 0); ctx.fill();
+                // Add glow if needs present
+                if (this.needs.length > 0) {
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = '#ef4444';
+                }
+
+                ctx.fillStyle = '#94a3b8'; ctx.fillRect(-15 * scaleFactor, -8 * scaleFactor, 30 * scaleFactor, 25 * scaleFactor);
+                ctx.fillStyle = '#475569'; ctx.fillRect(-15 * scaleFactor, 17 * scaleFactor, 30 * scaleFactor, 4 * scaleFactor);
+                ctx.fillStyle = '#e2e8f0'; ctx.beginPath(); ctx.arc(0, -8 * scaleFactor, 18 * scaleFactor, Math.PI, 0); ctx.fill();
 
                 const babyData = SPRITES.baby;
                 const babyPixelScale = PIXEL_SCALE / 3;
@@ -1418,21 +1677,30 @@
                         }
                     }
                 }
-                ctx.fillStyle = 'rgba(190, 240, 255, 0.4)'; ctx.beginPath(); ctx.arc(0, -8 * scaleFactor, 18 * scaleFactor, Math.PI, 0); ctx.fill();
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.3)'; ctx.beginPath(); ctx.arc(0, -8 * scaleFactor, 18 * scaleFactor, Math.PI, 0); ctx.fill();
                 ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1 * scaleFactor; ctx.stroke();
-                ctx.font = `${20 * scaleFactor}px Arial`;
-                if (this.needs.includes('feed')) ctx.fillText('🍼', -10 * scaleFactor, -25 * scaleFactor);
-                if (this.needs.includes('diaper')) ctx.fillText('💩', 10 * scaleFactor, -25 * scaleFactor);
-                if (this.needs.includes('assessment')) ctx.fillText('📋', -20 * scaleFactor, -10 * scaleFactor);
-                if (this.needs.includes('hold')) ctx.fillText('🤱', 20 * scaleFactor, -10 * scaleFactor);
-                if (this.needs.includes('procedure')) ctx.fillText('💉', -10 * scaleFactor, 10 * scaleFactor);
-                if (this.needs.includes('photo')) ctx.fillText('📸', 10 * scaleFactor, 10 * scaleFactor);
+
+                ctx.shadowBlur = 0; // Reset glow
+
+                ctx.font = `bold ${24 * scaleFactor}px Arial`;
+                if (this.needs.includes('feed')) { ctx.fillStyle = '#fef08a'; ctx.fillText('🍼', -10 * scaleFactor, -30 * scaleFactor); }
+                if (this.needs.includes('diaper')) { ctx.fillStyle = '#fdba74'; ctx.fillText('💩', 10 * scaleFactor, -30 * scaleFactor); }
+                if (this.needs.includes('assessment')) { ctx.fillStyle = '#fff'; ctx.fillText('📋', -20 * scaleFactor, -10 * scaleFactor); }
+                if (this.needs.includes('hold')) { ctx.fillStyle = '#fbcfe8'; ctx.fillText('🤱', 20 * scaleFactor, -10 * scaleFactor); }
+                if (this.needs.includes('procedure')) { ctx.fillStyle = '#ef4444'; ctx.fillText('💉', -10 * scaleFactor, 10 * scaleFactor); }
+                if (this.needs.includes('photo')) { ctx.fillStyle = '#e2e8f0'; ctx.fillText('📸', 10 * scaleFactor, 10 * scaleFactor); }
             }
         }
 
         class Machine extends Entity {
             constructor(x, y, type) { super(x, y, type); this.size = 20; }
-            drawBody(ctx) { drawSprite(ctx, this.type, 0, 0, PIXEL_SCALE / 2); }
+            drawBody(ctx) {
+                // Subtle glow for screens
+                ctx.shadowBlur = 5;
+                ctx.shadowColor = '#22d3ee';
+                drawSprite(ctx, this.type, 0, 0, PIXEL_SCALE / 2);
+                ctx.shadowBlur = 0;
+            }
             update(dt) { }
         }
 
@@ -1486,6 +1754,8 @@
                 // New Enemy Quotes
                 if (this.type === 'medicalfamily') quotes = ["I'm a vet, so...", "WebMD says...", "I took anatomy once."];
                 if (this.type === 'sickvisitor') quotes = ["*cough*", "It's just allergies.", "I'm not contagious."];
+                if (this.type === 'photographer') quotes = ["Say cheese!", "Just one more!", "Perfect lighting!"];
+                if (this.type === 'attending') quotes = ["Why is this not done?", "I'm rounding now.", "Who is the nurse?"];
 
                 this.say(quotes[Math.floor(Math.random() * quotes.length)]);
             }
@@ -1605,13 +1875,17 @@
 
                 if (this.state === 'annoying') {
                     const bw = 30 * (PIXEL_SCALE / 4); const bh = 5 * (PIXEL_SCALE / 4); const by = -50 * (PIXEL_SCALE / 4);
-                    ctx.fillStyle = '#feb2b2'; ctx.fillRect(this.pos.x - bw / 2, this.pos.y + by, bw, bh);
-                    ctx.fillStyle = '#f56565'; ctx.fillRect(this.pos.x - bw / 2, this.pos.y + by, bw * (this.annoyanceLevel / this.maxAnnoyance), bh);
+                    // Annoyance bar
+                    ctx.fillStyle = '#475569'; ctx.fillRect(this.pos.x - bw / 2, this.pos.y + by, bw, bh);
+                    ctx.fillStyle = '#ef4444'; ctx.fillRect(this.pos.x - bw / 2, this.pos.y + by, bw * (this.annoyanceLevel / this.maxAnnoyance), bh);
+                    ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(this.pos.x - bw / 2, this.pos.y + by, bw, bh);
                 }
                 if (this.bubble) {
-                    ctx.font = `${20 * (PIXEL_SCALE / 4)}px "Vt323"`; ctx.fillStyle = 'white'; ctx.strokeStyle = 'black'; ctx.lineWidth = 2;
-                    ctx.beginPath(); ctx.roundRect(this.pos.x - 40, this.pos.y - 100, 80, 60, 5); ctx.fill(); ctx.stroke();
-                    ctx.fillStyle = 'black'; ctx.textAlign = 'center'; ctx.fillText("...", this.pos.x, this.pos.y - 60);
+                    ctx.font = `${20 * (PIXEL_SCALE / 4)}px "Vt323"`;
+                    const w = ctx.measureText(this.bubble.text).width + 20;
+                    ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.roundRect(this.pos.x - w / 2, this.pos.y - 100, w, 40, 5); ctx.fill(); ctx.stroke();
+                    ctx.fillStyle = '#000'; ctx.textAlign = 'center'; ctx.fillText(this.bubble.text, this.pos.x, this.pos.y - 75);
                 }
             }
         }
@@ -1628,6 +1902,8 @@
                 else {
                     ctx.save(); ctx.translate(this.pos.x, this.pos.y); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                     ctx.font = `${30 * (PIXEL_SCALE / 4)}px Arial`;
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = 'white';
                     if (this.type === 'pizza') ctx.fillText('🍕', 0, 0);
                     else if (this.type === 'bathroom') ctx.fillText('🧻', 0, 0);
                     else if (this.type === 'admingift') ctx.fillText('🎁', 0, 0);
@@ -1665,15 +1941,22 @@
             }
             draw(ctx) {
                 ctx.save(); ctx.translate(this.pos.x, this.pos.y);
-                ctx.fillStyle = this.timer > 0 ? '#4299e1' : '#e53e3e'; // Blue normal, Red overdue
-                ctx.fillRect(-20, -20, 40, 40);
+
+                // Screen glow
+                const color = this.timer > 0 ? '#3b82f6' : '#ef4444';
+                ctx.fillStyle = color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = color;
+                ctx.fillRect(-18, -18, 36, 30);
+
                 ctx.fillStyle = 'white'; ctx.font = '20px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.fillText('💻', 0, 0);
+                ctx.shadowBlur = 0;
+                ctx.fillText('💻', 0, -2);
 
                 // Timer bar
                 if (this.timer > 0) {
-                    ctx.fillStyle = '#48bb78';
-                    ctx.fillRect(-20, -30, 40 * (this.timer / this.maxTimer), 5);
+                    ctx.fillStyle = '#22c55e';
+                    ctx.fillRect(-20, -35, 40 * (this.timer / this.maxTimer), 4);
                 }
                 ctx.restore();
             }
@@ -1687,8 +1970,12 @@
             update(dt) { }
             draw(ctx) {
                 ctx.save(); ctx.translate(this.pos.x, this.pos.y);
-                ctx.fillStyle = '#ed8936';
+                ctx.fillStyle = '#f97316';
                 ctx.fillRect(-20, -20, 40, 40);
+                ctx.strokeStyle = '#c2410c';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(-20, -20, 40, 40);
+
                 ctx.fillStyle = 'white'; ctx.font = '20px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                 ctx.fillText('🛒', 0, 0);
                 ctx.restore();
@@ -1724,14 +2011,16 @@
             }
             draw(ctx) {
                 ctx.save(); ctx.translate(this.pos.x, this.pos.y);
-                ctx.fillStyle = this.message && this.flashState ? '#f56565' : '#2d3748';
+                ctx.fillStyle = this.message && this.flashState ? '#ef4444' : '#1e293b';
                 ctx.fillRect(-15, -25, 30, 50);
-                ctx.fillStyle = '#a0aec0';
+                ctx.fillStyle = '#64748b';
                 ctx.fillRect(-10, -20, 20, 15); // Screen
 
                 if (this.message) {
                     ctx.fillStyle = 'red';
                     ctx.font = '20px Arial';
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = 'red';
                     ctx.fillText('!', 20, -20);
                 }
                 ctx.restore();
@@ -1743,6 +2032,12 @@
             draw(ctx) {
                 ctx.save();
                 ctx.translate(this.pos.x, this.pos.y);
+                // Shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.beginPath();
+                ctx.ellipse(0, 25, 20, 8, 0, 0, Math.PI * 2);
+                ctx.fill();
+
                 drawSprite(ctx, 'chair', 0, 0, PIXEL_SCALE * 1.2);
                 ctx.restore();
             }
@@ -1804,15 +2099,13 @@
                 gameState.tutorialMessage = { text: "", timer: 0, alpha: 0 };
             }
             pauseBtn.innerText = "⏸ PAUSE";
-            pauseBtn.style.backgroundColor = "#e53e3e";
-            restartBtn.style.display = 'none';
+            // restartBtn.style.display = 'none'; // Removed
             gameUiTop.style.display = 'flex';
             logPanel.style.display = 'flex';
 
-            // Randomly decide if it's a night shift
-            gameState.nightShift = Math.random() < 0.3; // 30% chance of night shift
+            // Night Shift is controlled by settings now
             if (gameState.nightShift) {
-                addLogEntry('admin', "It's a night shift. Good luck with the dark.");
+                addLogEntry('admin', "Night shift protocol active.");
             }
 
             const cols = 3;
@@ -1899,18 +2192,10 @@
         }
 
         function update(dt) {
-            // Night Shift Flicker Logic
+            // Night Shift Flicker Logic - REMOVED
             if (gameState.nightShift) {
                 gameState.flickerTimer -= dt;
-                if (gameState.flickerTimer <= 0) {
-                    // Random chance of flicker
-                    if (Math.random() < 0.1) {
-                        gameState.flickerIntensity = Math.random() * 3;
-                    } else {
-                        gameState.flickerIntensity = 0;
-                    }
-                    gameState.flickerTimer = 100 + Math.random() * 200;
-                }
+                // Flicker calculation removed
             } else {
                 gameState.flickerIntensity = 0;
             }
@@ -1970,7 +2255,7 @@
                 } else if (gameState.stickerDelay > 0) {
                     gameState.stickerDelay--;
                 } else {
-                    restartBtn.style.display = 'block';
+                    // restartBtn.style.display = 'block'; // Removed
                 }
                 return;
             }
@@ -2230,7 +2515,7 @@
             if (!settings.tutorialSeen) {
                 // Movement Hint
                 if (!gameState.tutorial.moveShown && gameState.time < SHIFT_START + 5) {
-                    showTutorial("Use WASD or Arrows to Move. Click to Interact.");
+                    showTutorial("WASD / Click to Move");
                     gameState.tutorial.moveShown = true;
                 }
 
@@ -2238,7 +2523,7 @@
                 if (!gameState.tutorial.babyShown) {
                     const needyIso = isolettes.find(i => i.needs.length > 0);
                     if (needyIso) {
-                        showTutorial("Baby needs help! Click the isolette!");
+                        showTutorial("Baby Needs Help! Click it!");
                         gameState.tutorial.babyShown = true;
                     }
                 }
@@ -2247,14 +2532,14 @@
                 if (!gameState.tutorial.enemyShown) {
                     const enemy = entities.find(e => e instanceof Enemy && e.active && e.state === 'annoying');
                     if (enemy) {
-                        showTutorial("They are annoying! Click them to dismiss!");
+                        showTutorial("Click visitors to dismiss them!");
                         gameState.tutorial.enemyShown = true;
                     }
                 }
 
                 // Sanity Hint
                 if (!gameState.tutorial.sanityShown && gameState.sanity < 70) {
-                    showTutorial("Sanity dropping! Find coffee or take a break!");
+                    showTutorial("Sanity dropping! Grab coffee!");
                     gameState.tutorial.sanityShown = true;
                 }
 
@@ -2337,29 +2622,54 @@
             return null;
         }
 
+        function drawFloor(ctx) {
+            const tileSize = 40;
+            const cols = Math.ceil(canvas.width / tileSize);
+            const rows = Math.ceil(canvas.height / tileSize);
+
+            for (let x = 0; x < cols; x++) {
+                for (let y = 0; y < rows; y++) {
+                    // Checkered pattern
+                    const isEven = (x + y) % 2 === 0;
+                    ctx.fillStyle = isEven ? '#1e293b' : '#334155'; // Dark blue-gray checkerboard
+                    ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+                }
+            }
+
+            // Vignette overlay
+            const gradient = ctx.createRadialGradient(
+                canvas.width / 2, canvas.height / 2, canvas.height * 0.4,
+                canvas.width / 2, canvas.height / 2, canvas.height * 0.9
+            );
+            gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0.4)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
         function drawNightShiftOverlay() {
             if (!gameState.nightShift) return;
 
             // Darken the entire screen
             ctx.save();
-            ctx.fillStyle = 'rgba(0, 0, 20, 0.3)';
+            ctx.fillStyle = 'rgba(0, 0, 20, 0.5)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Vignette effect
+            // Vignette effect for night
             const gradient = ctx.createRadialGradient(
-                canvas.width / 2, canvas.height / 2, canvas.height * 0.3,
-                canvas.width / 2, canvas.height / 2, canvas.height * 0.8
+                canvas.width / 2, canvas.height / 2, canvas.height * 0.2,
+                canvas.width / 2, canvas.height / 2, canvas.height * 0.9
             );
             gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
-            gradient.addColorStop(1, 'rgba(0, 0, 30, 0.5)');
+            gradient.addColorStop(1, 'rgba(0, 0, 30, 0.7)');
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Flicker effect (random light fluctuation)
-            if (gameState.flickerIntensity > 0) {
-                ctx.fillStyle = `rgba(255, 255, 200, ${gameState.flickerIntensity * 0.1})`;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-            }
+            // Flicker effect removed per user request
+            // if (gameState.flickerIntensity > 0) {
+            //     ctx.fillStyle = `rgba(255, 255, 200, ${gameState.flickerIntensity * 0.02})`;
+            //     ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // }
 
             ctx.restore();
         }
@@ -2370,28 +2680,26 @@
                 return;
             }
 
-            if (gameState.mode === 'REPORTOFF') {
-                drawReportOff();
-                return;
-            }
-
             if (gameState.mode === 'MUG') {
                 drawMugScreen();
                 return;
             }
-            ctx.fillStyle = gameState.nightShift ? '#1a1a2e' : '#2d3748';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.strokeStyle = gameState.nightShift ? '#2a2a4a' : '#3a4659';
-            ctx.lineWidth = 2; ctx.beginPath();
-            for (let x = 0; x < canvas.width; x += 40) { ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); }
-            for (let y = 0; y < canvas.height; y += 40) { ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); }
-            ctx.stroke();
+
+            // Draw stylized floor first
+            drawFloor(ctx);
 
             entities.sort((a, b) => a.pos.y - b.pos.y);
             entities.forEach(e => e.draw(ctx));
 
             ctx.font = 'bold 20px Arial';
-            particles.forEach(p => { ctx.fillStyle = p.color; ctx.fillText(p.text, p.x, p.y); });
+            particles.forEach(p => {
+                ctx.save();
+                ctx.shadowBlur = 5;
+                ctx.shadowColor = p.color;
+                ctx.fillStyle = p.color;
+                ctx.fillText(p.text, p.x, p.y);
+                ctx.restore();
+            });
 
             drawNightShiftOverlay();
             drawTutorialOverlay();
@@ -2403,13 +2711,15 @@
                 ctx.fillStyle = '#f687b3';
                 ctx.font = 'bold 60px "Vt323"';
                 ctx.textAlign = 'center';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#f687b3';
                 ctx.fillText(gameState.pausePhrase, canvas.width / 2, canvas.height / 2);
                 ctx.restore();
             }
         }
 
         function drawMugScreen() {
-            ctx.fillStyle = '#2d3748';
+            ctx.fillStyle = '#0f172a';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // --- LEFT SIDE: STATS ---
@@ -2417,9 +2727,15 @@
             ctx.font = '60px "Vt323"';
             ctx.textAlign = 'center';
             const title = gameState.victory ? "SHIFT SUMMARY" : gameState.failurePhrase || "SHIFT FAILED";
+            const titleColor = gameState.victory ? '#4ade80' : '#ef4444';
+            ctx.fillStyle = titleColor;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = titleColor;
             ctx.fillText(title, canvas.width * 0.25, 100);
+            ctx.shadowBlur = 0;
 
             ctx.font = '30px "Vt323"';
+            ctx.fillStyle = '#94a3b8';
             ctx.textAlign = 'left';
             const startX = canvas.width * 0.25 - 150;
             let y = 200;
@@ -2431,17 +2747,37 @@
             ctx.fillText(`Coffee Consumed: ${gameState.stats.coffeeConsumed}`, startX, y); y += 50;
 
             ctx.textAlign = 'center';
+            ctx.fillStyle = '#facc15';
             ctx.fillText(`Total Score: ${gameState.score}`, canvas.width * 0.25, y + 50);
 
             // Settings button
-            ctx.fillStyle = '#718096';
-            ctx.fillRect(canvas.width * 0.25 - 100, y + 100, 200, 50);
-            ctx.strokeStyle = '#4a5568';
-            ctx.lineWidth = 3;
-            ctx.strokeRect(canvas.width * 0.25 - 100, y + 100, 200, 50);
-            ctx.fillStyle = 'white';
-            ctx.font = '30px "Vt323"';
-            ctx.fillText('⚙ SETTINGS', canvas.width * 0.25, y + 133);
+            const settingsBtnSize = 60;
+            // Box removed per user request
+            // ctx.fillStyle = '#334155';
+            // ctx.fillRect(canvas.width * 0.25 - settingsBtnSize / 2, y + 100, settingsBtnSize, settingsBtnSize);
+            // ctx.strokeStyle = '#475569';
+            // ctx.lineWidth = 3;
+            // ctx.strokeRect(canvas.width * 0.25 - settingsBtnSize / 2, y + 100, settingsBtnSize, settingsBtnSize);
+
+            ctx.fillStyle = '#475569'; // Darker gray for the icon itself
+            ctx.font = '60px "Vt323"'; // Larger font
+            ctx.textBaseline = 'middle';
+            ctx.fillText('⚙', canvas.width * 0.25, y + 100 + settingsBtnSize / 2); // Centered vertically
+            ctx.textBaseline = 'alphabetic'; // Reset
+
+            // Next Shift Button (Only when ready)
+            if (gameState.inventoryStickers.length === 0 && gameState.stickerDelay <= 0) {
+                ctx.fillStyle = '#1e40af';
+                ctx.fillRect(canvas.width * 0.25 - 100, y + 170, 200, 50);
+                ctx.strokeStyle = '#60a5fa';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(canvas.width * 0.25 - 100, y + 170, 200, 50);
+                ctx.fillStyle = '#bfdbfe';
+                ctx.font = '24px "Vt323"';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('NEXT SHIFT >>', canvas.width * 0.25, y + 195); // Centered vertically (170 + 25)
+                ctx.textBaseline = 'alphabetic'; // Reset
+            }
 
             // --- RIGHT SIDE: MUG ---
             const mugX = canvas.width * 0.58;
@@ -2463,16 +2799,16 @@
             ctx.closePath();
 
             // Fill with shadow color
-            ctx.fillStyle = '#1a202c';
+            ctx.fillStyle = '#1e293b';
             ctx.fill();
 
             // Outline
-            ctx.strokeStyle = '#4a5568';
+            ctx.strokeStyle = '#64748b';
             ctx.lineWidth = 8;
             ctx.stroke();
 
             // Straw (optional detail)
-            ctx.fillStyle = '#4299e1';
+            ctx.fillStyle = '#60a5fa';
             ctx.fillRect(20, -mugH / 2 - 80, 20, 100);
 
             ctx.restore();
@@ -2484,7 +2820,7 @@
                 ctx.rotate(s.angle);
 
                 // Sticker Shadow
-                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
                 ctx.beginPath();
                 ctx.roundRect(-s.width / 2 + 4, -s.h / 2 + 4, s.width, s.h, 5);
                 ctx.fill();
@@ -2514,12 +2850,16 @@
             ctx.fillStyle = 'white';
             ctx.font = '60px "Vt323"';
             ctx.textAlign = 'center';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = 'white';
             ctx.fillText(`SCORE: ${gameState.displayedScore}`, mugX, 100);
 
             if (gameState.inventoryStickers.length === 0 && gameState.stickerDelay <= 0) {
-                ctx.fillStyle = '#48bb78';
+                ctx.fillStyle = '#4ade80';
                 ctx.font = '40px "Vt323"';
                 ctx.textAlign = 'center';
+                ctx.shadowBlur = 5;
+                ctx.shadowColor = '#4ade80';
                 ctx.fillText("SHIFT COMPLETE", mugX, canvas.height - 50);
             }
         }
@@ -2551,11 +2891,17 @@
 
             ctx.save();
             ctx.globalAlpha = gameState.tutorialMessage.alpha;
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#000';
             ctx.roundRect(canvas.width / 2 - 300, 100, 600, 60, 10);
             ctx.fill();
 
-            ctx.fillStyle = '#fff';
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = '#60a5fa';
             ctx.font = '30px "Vt323"';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -2570,16 +2916,8 @@
         }
 
         function drawReportOff() {
-            // Draw background (dimmed game)
-            ctx.fillStyle = '#2d3748';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Draw floor lines
-            ctx.strokeStyle = '#3a4659';
-            ctx.lineWidth = 2; ctx.beginPath();
-            for (let x = 0; x < canvas.width; x += 40) { ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); }
-            for (let y = 0; y < canvas.height; y += 40) { ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); }
-            ctx.stroke();
+            // Draw floor
+            drawFloor(ctx);
 
             // Draw Player Nurse (Idle)
             drawSprite(ctx, 'nurse', nurse.pos.x, nurse.pos.y);
@@ -2623,10 +2961,27 @@
             const mins = Math.min(59, Math.floor(gameState.time % 60)); // FIXED: Prevent 60 minutes
             timerDisplay.innerText = `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
             scoreDisplay.innerText = gameState.score;
-            sanityBar.style.width = `${Math.max(0, gameState.sanity)}%`;
-            if (gameState.sanity > 50) sanityBar.style.backgroundColor = '#48bb78';
-            else if (gameState.sanity > 20) sanityBar.style.backgroundColor = '#ecc94b';
-            else sanityBar.style.backgroundColor = '#f56565';
+
+            // Update sanity width and color
+            const width = Math.max(0, gameState.sanity);
+            sanityBar.style.width = `${width}%`;
+            sanityPercent.innerText = `${Math.floor(width)}%`;
+
+            if (width > 50) {
+                sanityBar.style.background = 'linear-gradient(90deg, #22c55e, #4ade80)';
+                sanityBar.style.boxShadow = '0 0 10px #22c55e';
+                sanityPercent.className = 'text-sm text-green-400';
+            }
+            else if (width > 20) {
+                sanityBar.style.background = 'linear-gradient(90deg, #ca8a04, #facc15)';
+                sanityBar.style.boxShadow = '0 0 10px #facc15';
+                sanityPercent.className = 'text-sm text-yellow-400';
+            }
+            else {
+                sanityBar.style.background = 'linear-gradient(90deg, #991b1b, #ef4444)';
+                sanityBar.style.boxShadow = '0 0 10px #ef4444';
+                sanityPercent.className = 'text-sm text-red-400 blink';
+            }
         }
 
         function playSoundVisual(x, y, text) {
@@ -2671,7 +3026,7 @@
                 logPanel.style.display = 'none';
             }
             messageBox.style.opacity = 0;
-            restartBtn.style.display = 'none';
+            // restartBtn.style.display = 'none'; // Removed
 
             // Set tutorial as seen after first game ends
             settings.tutorialSeen = true;
@@ -2691,7 +3046,7 @@
                 "I Forgot to Chart", "Pizza Party?", "Mandatory Training",
                 "Float Pool", "Short Staffed"
             ];
-            const colors = ['#feb2b2', '#fbd38d', '#9ae6b4', '#81e6d9', '#90cdf4', '#d6bcfa'];
+            const colors = ['#fca5a5', '#fcd34d', '#86efac', '#67e8f9', '#93c5fd', '#d8b4fe'];
 
             const count = Math.max(1, Math.floor(gameState.score / 200));
 
@@ -2765,17 +3120,31 @@
 
             if (gameState.mode === 'MUG') {
                 // Check for Settings button click (left side, below stats)
-                // Button position: canvas.width * 0.25 - 100, y + 100, 200, 50
-                // Need to calculate y position based on stats
                 const statsY = 200 + (5 * 50); // 5 stat lines * 50px each
-                const settingsBtnX = canvas.width * 0.25 - 100;
+                const settingsBtnSize = 60;
+                const settingsBtnX = canvas.width * 0.25 - settingsBtnSize / 2;
                 const settingsBtnY = statsY + 100;
-                const settingsBtnW = 200;
-                const settingsBtnH = 50;
+                const settingsBtnW = settingsBtnSize;
+                const settingsBtnH = settingsBtnSize;
 
                 if (pos.x > settingsBtnX && pos.x < settingsBtnX + settingsBtnW &&
                     pos.y > settingsBtnY && pos.y < settingsBtnY + settingsBtnH) {
                     openSettings();
+                    return;
+                }
+
+                // Check for Next Shift button click
+                const nextShiftBtnY = statsY + 170;
+                // The next shift button still uses the old width (200) and is centered at canvas.width * 0.25
+                const nextShiftBtnX = canvas.width * 0.25 - 100;
+                const nextShiftBtnW = 200;
+                const nextShiftBtnH = 50;
+
+                if (pos.x > nextShiftBtnX && pos.x < nextShiftBtnX + nextShiftBtnW &&
+                    pos.y > nextShiftBtnY && pos.y < nextShiftBtnY + nextShiftBtnH) {
+                    if (gameState.inventoryStickers.length === 0 && gameState.stickerDelay <= 0) {
+                        startGame();
+                    }
                     return;
                 }
                 return;
