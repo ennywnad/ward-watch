@@ -56,9 +56,10 @@
             height: 100%;
             pointer-events: none;
             z-index: 10;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            background-size: 100% 2px, 3px 100%;
-            box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.7);
+            /* Removed RGB split/color tint, reduced scanline opacity */
+            background: linear-gradient(rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 2px;
+            box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.4);
         }
 
         .crt-flicker {
@@ -611,8 +612,8 @@
                     </div>
 
                     <div class="flex justify-between items-center">
-                        <label for="setting-alt-sprites" class="text-xl text-blue-200">Hi-Res Sprites</label>
-                        <input type="checkbox" id="setting-alt-sprites" onchange="toggleAltSprites()">
+                        <label for="setting-3d-mode" class="text-xl text-blue-200">3D Mode</label>
+                        <input type="checkbox" id="setting-3d-mode" onchange="toggle3DMode()">
                     </div>
                 </div>
 
@@ -626,12 +627,7 @@
                     </button>
                 </div>
 
-                <div class="flex gap-2 mt-2">
-                    <button class="btn w-full py-2 text-xl" onclick="openCharacterRoster('alt')"
-                        style="background-color: #6b46c1;">
-                        ALT DESIGNS ROSTER
-                    </button>
-                </div>
+
 
                 <button class="btn mt-6 w-full" onclick="closeSettings()">SAVE & EXIT</button>
             </div>
@@ -742,7 +738,7 @@
             shortStaffed: false,
             tutorialSeen: false,
             autoNurse: false,
-            altSprites: false
+            mode3d: true // Default to 3D mode
         };
 
         // Load from localStorage on page load
@@ -752,7 +748,7 @@
                 Object.assign(settings, JSON.parse(saved));
                 gameState.nightShift = settings.nightShift;
                 gameState.shortStaffed = settings.shortStaffed;
-                gameState.altSprites = settings.altSprites;
+                gameState.mode3d = settings.mode3d;
             }
             // Update UI elements based on loaded settings
             const volSlider = document.getElementById('volume-slider');
@@ -766,6 +762,9 @@
 
             const autoNurseCheckbox = document.getElementById('setting-auto-nurse');
             if (autoNurseCheckbox) autoNurseCheckbox.checked = settings.autoNurse;
+
+            const mode3dCheckbox = document.getElementById('setting-3d-mode');
+            if (mode3dCheckbox) mode3dCheckbox.checked = settings.mode3d;
 
             updateAutoToggleButton();
             updateSettingsUI(); // Call this to ensure other UI elements are updated
@@ -840,9 +839,9 @@
             updateAutoToggleButton();
         }
 
-        function toggleAltSprites() {
-            settings.altSprites = !settings.altSprites;
-            gameState.altSprites = settings.altSprites;
+        function toggle3DMode() {
+            settings.mode3d = !settings.mode3d;
+            gameState.mode3d = settings.mode3d;
             saveSettings();
         }
 
@@ -866,18 +865,18 @@
             { name: "Dad", role: "The Partner", sprite: "dad_bottle", quote: "My wife has a question...", stats: ["Support Role: Active", "Medical Knowledge: Learning", "Snack Runs: Frequent", "Stress Level: Rising"] },
             { name: "Coffee", role: "The Lifesaver", sprite: "coffee", quote: "[Steam noises]", stats: ["Speed Boost: +80%", "Sanity Restored: +5", "Temperature: Lava", "Required: Always"] },
             { name: "Pizza", role: "The Cold Comfort", sprite: "pizza", quote: "Still edible!", stats: ["Temperature: Room", "Quality: Questionable", "Sanity Boost: +20", "Source: Break Room"] },
-            { name: "Bathroom Break", role: "The Necessity", sprite: null, quote: "Finally!", stats: ["Relief: Maximum", "Sanity Boost: Full", "Duration: Too Short", "Frequency: Never Enough"] },
-            { name: "Hand Sanitizer", role: "The Essential", sprite: null, quote: "*squirt*", stats: ["Alcohol Content: 70%", "Skin Dryness: +50", "Germ Kill: 99.9%", "Use Rate: Constant"] },
+            { name: "Bathroom Break", role: "The Necessity", sprite: "bathroom", quote: "Finally!", stats: ["Relief: Maximum", "Sanity Boost: Full", "Duration: Too Short", "Frequency: Never Enough"] },
+            { name: "Hand Sanitizer", role: "The Essential", sprite: "sanitizer", quote: "*squirt*", stats: ["Alcohol Content: 70%", "Skin Dryness: +50", "Germ Kill: 99.9%", "Use Rate: Constant"] },
             { name: "Floor Cleaner", role: "The Hazard", sprite: "floorcleaner", quote: "Wet Floor!", stats: ["Slip Risk: HIGH", "Timing: Always Terrible", "Coverage: Entire Hallway", "Warning Signs: Ignored"] },
             { name: "Admin Gift", role: "The Wellness Trap", sprite: "admingift", quote: "Heroes Work Here!", stats: ["Actual Value: $0.02", "Sanity Cost: -10", "Message: We 'Appreciate' You", "Usefulness: Zero"] },
-            { name: "Baby", role: "The Patient", sprite: null, quote: "*cries in NICU*", stats: ["Size: Tiny", "Needs: Constant", "Cuteness: Maximum", "Worth It: 100%"] }
+            { name: "Baby", role: "The Patient", sprite: "baby", quote: "*cries in NICU*", stats: ["Size: Tiny", "Needs: Constant", "Cuteness: Maximum", "Worth It: 100%"] },
+            { name: "Student Nurse", role: "The Orientee", sprite: "student", quote: "Um... should I call the doctor?", stats: ["Knowledge: Purely Theoretical", "Alarm Awareness: None", "Personal Space: What's That?", "Questions: Endless", "Trainable: Maybe"] }
         ];
 
         let currentCharacterIndex = 0;
         let currentRosterMode = 'standard';
 
-        function openCharacterRoster(mode = 'standard') {
-            currentRosterMode = mode;
+        function openCharacterRoster() {
             document.getElementById('settings-overlay').style.display = 'none';
             document.getElementById('character-roster-overlay').style.display = 'flex';
             currentCharacterIndex = 0;
@@ -917,18 +916,8 @@
                 // Fill with dark background
                 spriteCtx.fillStyle = '#2d3748';
                 spriteCtx.fillRect(0, 0, 200, 200);
-                drawSprite(spriteCtx, char.sprite, 100, 100, 20, currentRosterMode === 'alt');
+                drawSprite(spriteCtx, char.sprite, 100, 100, 20);
                 spriteDiv.appendChild(spriteCanvas);
-            } else {
-                const emoji = document.createElement('div');
-                emoji.style.fontSize = '80px';
-                if (char.name === 'Pizza') emoji.textContent = '🍕';
-                else if (char.name === 'Bathroom Break') emoji.textContent = '🧻';
-                else if (char.name === 'Hand Sanitizer') emoji.textContent = '🧴';
-                else if (char.name === 'Floor Cleaner') emoji.textContent = '🧹';
-                else if (char.name === 'Admin Gift') emoji.textContent = '🎁';
-                else if (char.name === 'Baby') emoji.textContent = '👶';
-                spriteDiv.appendChild(emoji);
             }
         }
         let gameState = {
@@ -1006,40 +995,43 @@
 
         const SPRITES = {
             nurse: [
-                "___WWWW___",
-                "___WWWW___",
-                "___SSSS___",
-                "___SRSS___",
-                "__BBBBBB__",
-                "__BBBBBB__",
-                "_BBWWBBBB_",
-                "_BBBBBBBB_",
-                "__BB__BB__",
-                "__NW__NW__"
+                "____WWWW____",
+                "____WWWW____",
+                "____SSSS____",
+                "____SKSK____", // Added eyes
+                "___BBBBBB___",
+                "___BBBBBB___",
+                "__BBWWWWBB__", // More detail on scrubs
+                "__BBBBBBBB__",
+                "___BB__BB___",
+                "___NW__NW___",
+                "___NW__NW___"  // Taller
             ],
             nurse_sit: [
-                "____WW____",
-                "____SS____",
-                "___WWW____",
-                "___WWW____",
-                "___WWWWWW_",
-                "____WW____",
-                "____WW____",
-                "__________",
-                "__________",
-                "__________"
+                "_____WW_____",
+                "_____SS_____",
+                "_____SS_____",
+                "____WWWW____",
+                "____WWWW____",
+                "____WWWWWW__",
+                "_____WW_____",
+                "_____WW_____",
+                "____________",
+                "____________",
+                "____________",
+                "____________"
             ],
             resident: [
-                "___HHHH___", // Hair
-                "___SSSS___", // Forehead
-                "___SKS____", // Eyes
-                "___WWW____", // Mask
-                "__WWWWWW__", // Shoulders
-                "__C_W_C___", // Steth tubes
-                "_WC_W_CW__", // Steth tubes
-                "_WWCCCWW__", // Steth U/Bell
-                "__WW__WW__", // Legs
-                "__WW__WW__"  // Legs
+                "____HHHH____",
+                "____SSSS____",
+                "____SKSK____", // Eyes
+                "____WWWW____", // Mask
+                "___WWWWWW___",
+                "___C_WW_C___",
+                "__WC_WW_CW__",
+                "__WWCCCCWW__",
+                "___WW__WW___",
+                "___WW__WW___"
             ],
             surgeon: [
                 "___GGGG___",
@@ -1221,50 +1213,96 @@
                 "_JJJJJJJJ_",
                 "__LL__LL__",
                 "__LL__LL__"
+            ],
+            student: [
+                "____WWWW____",
+                "____WWWW____",
+                "____SSSS____",
+                "____SKKS____", // Uncertain eyes (wider spacing)
+                "___CCCCCC___", // Light cyan scrubs
+                "___CCCCCC___",
+                "__CCWWWWCC__", // More detail on scrubs
+                "__CCCCCCCC__",
+                "___CC__CC___",
+                "___NW__NW___",
+                "___NW__NW___" // Taller (matches nurse alt height)
+            ],
+            // New Item Sprites
+            bathroom: [
+                "__________",
+                "___WWWW___",
+                "__W____W__",
+                "__W____W__",
+                "__W____W__",
+                "___WWWW___",
+                "___W__W___",
+                "___W__W___",
+                "___WWWW___",
+                "__________"
+            ],
+            sanitizer: [
+                "____K_____",
+                "___KKK____",
+                "____K_____",
+                "__CCCCC___",
+                "__CCCCC___",
+                "__CCCCC___",
+                "__CCCCC___",
+                "__CCCCC___"
+            ],
+            workingpump: [
+                "___KKK____",
+                "__KBBBK___",
+                "__KBBBK___",
+                "__KKKKK___",
+                "___K_K____",
+                "___K_K____",
+                "__KKKKK___",
+                "__________"
+            ],
+            coworker: [
+                "___WWWW___",
+                "___SSSS___",
+                "___SKS____",
+                "__CCCCCC__",
+                "__CCCCCC__",
+                "__CCCCCC__",
+                "__CCCCCC__",
+                "__________"
+            ],
+            trainingemail: [
+                "__________",
+                "__WWWWWW__",
+                "__WMMMMW__",
+                "__WMMMMW__",
+                "__WMMMMW__",
+                "__WWWWWW__",
+                "__________",
+                "__________"
+            ],
+            missingsupply: [
+                "__________",
+                "__RR__RR__",
+                "___RRRR___",
+                "____RR____",
+                "___RRRR___",
+                "__RR__RR__",
+                "__________",
+                "__________"
+            ],
+            brokenequip: [
+                "___Y_Y____",
+                "____Y_____",
+                "___KKK____",
+                "__KKKKK___",
+                "__KKKKK___",
+                "__KKKKK___",
+                "__________",
+                "__________"
             ]
         });
 
-        const SPRITES_ALT = {
-            nurse: [
-                "____WWWW____",
-                "____WWWW____",
-                "____SSSS____",
-                "____SKSK____", // Added eyes
-                "___BBBBBB___",
-                "___BBBBBB___",
-                "__BBWWWWBB__", // More detail on scrubs
-                "__BBBBBBBB__",
-                "___BB__BB___",
-                "___NW__NW___",
-                "___NW__NW___"  // Taller
-            ],
-            nurse_sit: [
-                "_____WW_____",
-                "_____SS_____",
-                "_____SS_____",
-                "____WWWW____",
-                "____WWWW____",
-                "____WWWWWW__",
-                "_____WW_____",
-                "_____WW_____",
-                "____________",
-                "____________",
-                "____________",
-                "____________"
-            ],
-            resident: [
-                "____HHHH____",
-                "____SSSS____",
-                "____SKSK____", // Eyes
-                "____WWWW____", // Mask
-                "___WWWWWW___",
-                "___C_WW_C___",
-                "__WC_WW_CW__",
-                "__WWCCCCWW__",
-                "___WW__WW___",
-                "___WW__WW___"
-            ]
-        };
+
 
         const nurseResponses = {
             dismissEnemy: [
@@ -1312,11 +1350,8 @@
             "Off The Clock"
         ];
 
-        function drawSprite(ctx, spriteKey, x, y, scale = PIXEL_SCALE, forceAlt = false) {
+        function drawSprite(ctx, spriteKey, x, y, scale = PIXEL_SCALE) {
             let data = SPRITES[spriteKey];
-            if ((settings.altSprites || forceAlt) && SPRITES_ALT && SPRITES_ALT[spriteKey]) {
-                data = SPRITES_ALT[spriteKey];
-            }
             if (!data) return;
             const width = data[0].length * scale;
             const height = data.length * scale;
@@ -1329,7 +1364,28 @@
             ctx.ellipse(x, y + height / 2 - 2, width / 2, width / 6, 0, 0, Math.PI * 2);
             ctx.fill();
 
-            // Draw Sprite
+            // 3D Volumetric Rendering
+            const depth = settings.mode3d ? scale * 0.5 : 0; // Depth based on scale
+
+            // Draw Depth Layers (if 3D mode is on)
+            if (settings.mode3d) {
+                const layers = 3;
+                for (let i = layers; i > 0; i--) {
+                    const offset = i * (scale / 4);
+                    for (let r = 0; r < data.length; r++) {
+                        for (let c = 0; c < data[0].length; c++) {
+                            const char = data[r][c];
+                            const color = COLORS[char];
+                            if (color) {
+                                ctx.fillStyle = 'rgba(0,0,0,0.3)'; // Shadow color for depth
+                                ctx.fillRect(startX + c * scale - offset, startY + r * scale - offset, scale, scale);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Draw Main Sprite Face
             for (let r = 0; r < data.length; r++) {
                 for (let c = 0; c < data[0].length; c++) {
                     const char = data[r][c];
@@ -1547,9 +1603,19 @@
                 }
 
                 if (this.state === 'sitting') {
-                    gameState.sanity += 0.15;
+                    // Check for student interference (reduces regen)
+                    const nearbyStudents = entities.filter(e =>
+                        e.type === 'student' && e.pos.dist(this.pos) < 100
+                    );
+                    const regenAmount = nearbyStudents.length > 0 ? 0.075 : 0.15; // 50% reduction
+
+                    gameState.sanity += regenAmount;
                     if (gameState.sanity > 100) gameState.sanity = 100;
-                    if (Math.random() < 0.005 && !this.bubble) {
+
+                    // Complain if student is hovering
+                    if (nearbyStudents.length > 0 && Math.random() < 0.005 && !this.bubble) {
+                        this.say("Can I get a moment?", 'nurse');
+                    } else if (Math.random() < 0.005 && !this.bubble) {
                         this.say("My feet hurt...", 'nurse');
                     }
                     return;
@@ -1892,29 +1958,169 @@
 
         class Item extends Entity {
             constructor(x, y, type) {
-                super(x, y, type); this.timer = 9000;
-                if (type === 'coffee') this.size = SPRITES.coffee[0].length * PIXEL_SCALE / 2;
-                else this.size = 30 * (PIXEL_SCALE / 4);
+                super(x, y, type);
+                this.timer = 9000;
+                if (SPRITES[type]) {
+                    this.size = SPRITES[type][0].length * PIXEL_SCALE / 2;
+                } else {
+                    this.size = 30 * (PIXEL_SCALE / 4);
+                }
             }
             update(dt) { this.timer -= dt; if (this.timer <= 0) this.markedForDeletion = true; }
             draw(ctx) {
-                if (this.type === 'coffee') drawSprite(ctx, 'coffee', this.pos.x, this.pos.y);
-                else {
+                if (SPRITES[this.type]) {
+                    drawSprite(ctx, this.type, this.pos.x, this.pos.y);
+                } else {
+                    // Fallback for unknown types (shouldn't happen now)
                     ctx.save(); ctx.translate(this.pos.x, this.pos.y); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                     ctx.font = `${30 * (PIXEL_SCALE / 4)}px Arial`;
                     ctx.shadowBlur = 10;
                     ctx.shadowColor = 'white';
-                    if (this.type === 'pizza') ctx.fillText('🍕', 0, 0);
-                    else if (this.type === 'bathroom') ctx.fillText('🧻', 0, 0);
-                    else if (this.type === 'admingift') ctx.fillText('🎁', 0, 0);
-                    // New Items
-                    else if (this.type === 'sanitizer') ctx.fillText('🧴', 0, 0);
-                    else if (this.type === 'workingpump') ctx.fillText('💉', 0, 0);
-                    else if (this.type === 'coworker') ctx.fillText('👩‍⚕️', 0, 0);
-                    else if (this.type === 'trainingemail') ctx.fillText('📧', 0, 0);
-                    else if (this.type === 'missingsupply') ctx.fillText('❌', 0, 0);
-                    else if (this.type === 'brokenequip') ctx.fillText('⚠️', 0, 0);
+                    ctx.fillText('?', 0, 0);
                     ctx.restore();
+                }
+            }
+        }
+
+        class Student extends Entity {
+            constructor(x, y) {
+                super(x, y, 'student');
+                this.trainingLevel = 0; // 0-100
+                this.speed = 2 * (PIXEL_SCALE / 4);
+                this.target = null;
+                this.questionTimer = 0;
+                this.questionInterval = 20000 + Math.random() * 10000; // 20-30s
+                this.frozen = false; // For doctor phobia
+                this.active = true;
+                this.size = SPRITES.student[0].length * PIXEL_SCALE / 2;
+                this.lastTeaching = 0;
+            }
+
+            update(dt) {
+                super.update(dt);
+
+                // Unfreeze if doctors are gone
+                if (this.frozen) {
+                    const nearbyDoctors = entities.filter(e =>
+                        (e.type === 'surgeon' || e.type === 'attending') &&
+                        e.pos.dist(this.pos) < 200
+                    );
+                    if (nearbyDoctors.length === 0) {
+                        this.frozen = false;
+                    } else {
+                        return; // Stay frozen
+                    }
+                }
+
+                // Doctor phobia - freeze when doctors nearby
+                const nearbyDoctors = entities.filter(e =>
+                    (e.type === 'surgeon' || e.type === 'attending') &&
+                    e.pos.dist(this.pos) < 150
+                );
+                if (nearbyDoctors.length > 0 && Math.random() < 0.8) {
+                    this.frozen = true;
+                    if (Math.random() < 0.01) {
+                        this.say("Um... should I call?");
+                    }
+                    return;
+                }
+
+                // Follow player nurse (shadow behavior)
+                const targetDist = 60 + Math.random() * 20; // 60-80px
+                if (nurse.pos.dist(this.pos) > targetDist) {
+                    this.target = new Vector(nurse.pos.x, nurse.pos.y);
+                    this.state = 'moving';
+                }
+
+                // Question spam
+                this.questionTimer += dt;
+                const questionChance = Math.max(0.2, 1 - (this.trainingLevel / 100));
+                if (this.questionTimer > this.questionInterval && Math.random() < questionChance) {
+                    this.askQuestion();
+                    this.questionTimer = 0;
+                    this.questionInterval = 20000 + Math.random() * 10000;
+                }
+
+                // Reduce chair regen if nearby
+                if (nurse.state === 'sitting' && this.pos.dist(nurse.pos) < 100) {
+                    // This will be checked in the chair regen logic
+                }
+            }
+
+            askQuestion() {
+                const questions = [
+                    "Is this normal?",
+                    "What should I do?",
+                    "Can you show me?",
+                    "Did I do that right?",
+                    "Should I call the doctor?",
+                    "What's this for?"
+                ];
+                this.say(questions[Math.floor(Math.random() * questions.length)]);
+
+                // Sanity cost
+                gameState.sanity -= 3 + Math.random() * 2; // 3-5 sanity
+                addLogEntry('student', "Student asked a question");
+            }
+
+            teach() {
+                const now = Date.now();
+                if (now - this.lastTeaching < 3000) return; // Cooldown
+
+                this.trainingLevel += 10;
+                if (this.trainingLevel > 100) this.trainingLevel = 100;
+
+                const responses = [
+                    "Good question!",
+                    "Let me show you",
+                    "You're learning",
+                    "Nice improvement"
+                ];
+                nurse.say(responses[Math.floor(Math.random() * responses.length)], 'nurse');
+                playSoundVisual(this.pos.x, this.pos.y, "+10 TRAINING");
+
+                this.lastTeaching = now;
+            }
+
+            // Called when student tries to help with baby
+            helpBaby(isolette) {
+                const alarmIgnoreChance = Math.max(0.2, 0.8 - (this.trainingLevel / 125));
+
+                if (Math.random() < alarmIgnoreChance) {
+                    // Doesn't silence alarm first!
+                    if (isolette.needs.length > 0) {
+                        gameState.sanity -= 5; // Penalties for not silencing
+                        addLogEntry('student', "Student didn't silence alarm!");
+                        playSoundVisual(isolette.pos.x, isolette.pos.y - 40, "BEEP BEEP");
+                    }
+                } else {
+                    // Actually helps correctly
+                    if (isolette.needs.length > 0) {
+                        isolette.needs.shift();
+                        addLogEntry('student', "Student helped (correctly!)");
+                    }
+                }
+            }
+
+            drawBody(ctx) {
+                drawSprite(ctx, 'student', 0, 0, PIXEL_SCALE);
+
+                // Show training level as small bar above head
+                if (this.trainingLevel > 0) {
+                    const barW = 30;
+                    const barH = 4;
+                    ctx.fillStyle = '#2d3748';
+                    ctx.fillRect(-barW / 2, -50, barW, barH);
+                    ctx.fillStyle = '#4ade80';
+                    ctx.fillRect(-barW / 2, -50, (barW * this.trainingLevel / 100), barH);
+                }
+
+                // Show frozen state
+                if (this.frozen) {
+                    ctx.fillStyle = '#60a5fa';
+                    ctx.font = '20px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('😰', 0, -60);
                 }
             }
         }
@@ -2122,6 +2328,16 @@
 
             // Initial Spawn
             spawnEnemy();
+
+            // Student Nurse Spawn (15% chance)
+            if (Math.random() < 0.15) {
+                const student = new Student(canvas.width / 2 + 50, canvas.height / 2 + 50);
+                entities.push(student);
+                addLogEntry('student', "Hi! I'm your student for today!");
+                setTimeout(() => {
+                    student.say("What should I do first?");
+                }, 2000);
+            }
 
             let idCount = 0;
             for (let r = 0; r < rows; r++) {
@@ -3054,6 +3270,14 @@
             gameState.displayedScore = 0; // Reset displayed score
             gameState.mugFillHeight = 0; // Reset fill height
 
+            // Check for student mentoring achievement
+            const students = entities.filter(e => e.type === 'student');
+            if (students.length > 0 && students[0].trainingLevel >= 80) {
+                const mentorSticker = new Sticker('Great Mentor!', '#4ade80');
+                gameState.inventoryStickers.push(mentorSticker);
+                addLogEntry('admin', "Student Training Complete!");
+            }
+
             for (let i = 0; i < count; i++) {
                 const txt = stickerPhrases[Math.floor(Math.random() * stickerPhrases.length)];
                 const col = colors[Math.floor(Math.random() * colors.length)];
@@ -3169,6 +3393,16 @@
                     nurse.target = new Vector(item.pos.x, item.pos.y); nurse.state = 'moving'; return;
                 }
             }
+
+            // Check for student click (teaching interaction)
+            const students = entities.filter(ent => ent.type === 'student');
+            for (let student of students) {
+                if (student.pos.dist(pos) < 40 + student.size / 2) {
+                    student.teach();
+                    return;
+                }
+            }
+
             const enemies = entities.filter(ent => ['resident', 'mom', 'dad', 'surgeon'].includes(ent.type) && ent.active);
             for (let enemy of enemies) {
                 // FIXED: Check if CLICK is on enemy
